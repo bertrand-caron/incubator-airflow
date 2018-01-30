@@ -678,6 +678,7 @@ def webserver(args):
     app = cached_app(conf)
     access_logfile = args.access_logfile or conf.get('webserver', 'access_logfile')
     error_logfile = args.error_logfile or conf.get('webserver', 'error_logfile')
+    keep_alive = args.keep_alive or conf.get('webserver', 'keep_alive')
     num_workers = args.workers or conf.get('webserver', 'workers')
     worker_timeout = (args.worker_timeout or
                       conf.get('webserver', 'web_server_worker_timeout'))
@@ -710,6 +711,7 @@ def webserver(args):
                 Host: {args.hostname}:{args.port}
                 Timeout: {worker_timeout}
                 Logfiles: {access_logfile} {error_logfile}
+                Keep Alive: {keep_alive}
                 =================================================================\
             '''.format(**locals())))
 
@@ -721,7 +723,8 @@ def webserver(args):
             '-b', args.hostname + ':' + str(args.port),
             '-n', 'airflow-webserver',
             '-p', str(pid),
-            '-c', 'python:airflow.www.gunicorn_config'
+            '-c', 'python:airflow.www.gunicorn_config',
+            '--keep-alive', str(keep_alive)
         ]
 
         if args.access_logfile:
@@ -1365,6 +1368,11 @@ class CLIFactory(object):
             default=conf.get('webserver', 'ERROR_LOGFILE'),
             help="The logfile to store the webserver error log. Use '-' to print to "
                  "stderr."),
+        'keep_alive': Arg(
+            ("-K", "--keep_alive"),
+            default=conf.get('webserver', 'KEEP_ALIVE'),
+            help="The number of seconds the gunicorn HTTP server will wait for requests on a Keep-Alive connection."
+        ),
         # resetdb
         'yes': Arg(
             ("-y", "--yes"),
@@ -1568,7 +1576,7 @@ class CLIFactory(object):
             'help': "Start a Airflow webserver instance",
             'args': ('port', 'workers', 'workerclass', 'worker_timeout', 'hostname',
                      'pid', 'daemon', 'stdout', 'stderr', 'access_logfile',
-                     'error_logfile', 'log_file', 'ssl_cert', 'ssl_key', 'debug'),
+                     'error_logfile', 'keep_alive', 'log_file', 'ssl_cert', 'ssl_key', 'debug'),
         }, {
             'func': resetdb,
             'help': "Burn down and rebuild the metadata database",

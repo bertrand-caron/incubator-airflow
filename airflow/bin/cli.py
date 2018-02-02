@@ -724,7 +724,8 @@ def webserver(args):
             '-n', 'airflow-webserver',
             '-p', str(pid),
             '-c', 'python:airflow.www.gunicorn_config',
-            '--keep-alive', str(keep_alive)
+            '--keep-alive', str(keep_alive),
+            '--forwarded-allow-ips', '*'
         ]
 
         if args.access_logfile:

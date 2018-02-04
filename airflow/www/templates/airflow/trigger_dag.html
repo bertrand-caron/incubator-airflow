@@ -23,6 +23,7 @@
 
 {% block body %}
     {{ super() }}
+    <form action="{{ url_for('trigger_with_conf') }}" method="post">
     <input type="hidden" value="{{ dag.dag_id }}" name="dag_id">
     <br>
     <table class="table table-striped table-bordered">
@@ -43,5 +44,7 @@
             {% endfor %}
     {% endfor %}
     </table>
+    <input type="submit">
+    </form>
 
 {% endblock %}

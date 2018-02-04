@@ -898,6 +898,20 @@ class Airflow(BaseView):
             "it should start any moment now.".format(ti))
         return redirect(origin)
 
+
+    @expose('/trigger_dag')
+    @login_required
+    def trigger_dag(self):
+        dag_id = request.args.get('dag_id')
+        dag = dagbag.get_dag(dag_id)
+        title = dag_id
+
+        return self.render(
+            'airflow/trigger_dag.html', dag=dag, title=title, enumerate=enumerate, len=len,
+            root=request.args.get('root'),
+            demo_mode=conf.getboolean('webserver', 'demo_mode'))
+
+
     @expose('/trigger')
     @login_required
     @wwwutils.action_logging

@@ -23,28 +23,31 @@
 
 {% block body %}
     {{ super() }}
-    <form action="{{ url_for('trigger_with_conf') }}" method="post">
-    <input type="hidden" value="{{ dag.dag_id }}" name="dag_id">
-    <br>
-    <table class="table table-striped table-bordered">
-    {% for key, task in dag.default_args['parameters'].iteritems() %}
-        <tr>
-            <td rowspan={{len(task)}}><p>{{key}}</p></td>
-            {% for index, param in enumerate(task) %}
-                {% if index > 1 %}
-                    <tr>
-                {% endif %}
-                    <td><p>{{task[param]['name']}}</p></td>
-                    {% if 'default' in task[param] %}
-                        <td><input type="text" name={{param}} value={{task[param]['default']}}></td>
-                    {% else %}
-                        <td><input type="text" name={{param}}></td>
-                    {% endif %}
-            </tr>
-            {% endfor %}
-    {% endfor %}
-    </table>
-    <input type="submit">
+    <form action="{{ url_for('airflow.trigger_with_conf') }}" method="post">
+      <input type="hidden" value="{{ dag.dag_id }}" name="dag_id">
+      <input name=_csrf_token type=hidden value="{{ csrf_token() }}">
+      <input type="submit" value="Go!">
+
+      <br>
+      <br>
+        <table class="table table-striped table-bordered">
+      {% for key, task in dag.params.iteritems() %}
+          <tr>
+              <td rowspan={{len(task)}}><p>{{key.replace('_', ' ').title()}}</p></td>
+              {% for index, param in enumerate(task) %}
+                  {% if index > 1 %}
+                      <tr>
+                  {% endif %}
+                      <td data-toggle="tooltip" title="{{task[param]['description']}}"><p>{{task[param]['name']}}</p></td>
+                      {% if 'default' in task[param] %}
+                          <td><input type="text" name=conf.{{key}}.{{param}} value={{task[param]['default']}}></td>
+                      {% else %}
+                          <td><input type="text" name=conf.{{key}}.{{param}}></td>
+                      {% endif %}
+              </tr>
+              {% endfor %}
+      {% endfor %}
+      </table>
     </form>
 
 {% endblock %}

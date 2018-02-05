@@ -917,12 +917,12 @@ class Airflow(BaseView):
     #     # your code
     #     # return a response
 
-    @expose('/trigger_with_conf')
+    @expose('/trigger_with_conf', methods=["POST"])
     @login_required
     @wwwutils.action_logging
     @wwwutils.notify_owner
-    def trigger(self):
-        dag_id = request.args.get('dag_id')
+    def trigger_with_conf(self):
+        dag_id = request.form['dag_id']
         origin = request.args.get('origin') or "/admin/"
         dag = dagbag.get_dag(dag_id)
 
@@ -939,7 +939,11 @@ class Airflow(BaseView):
             return redirect(origin)
 
         run_conf = {}
-
+        for input in request.form:
+            if input.startswith('conf.'):
+                task = input.split('.')[1]
+                param = input.split('.')[2]
+                run_conf.setdefault(task, {})[param] = request.form[input]
         dag.create_dagrun(
             run_id=run_id,
             execution_date=execution_date,
@@ -951,7 +955,7 @@ class Airflow(BaseView):
         flash(
             "Triggered {}, "
             "it should start any moment now.".format(dag_id))
-        return redirect(origin)
+        return redirect(url_for('airflow.graph', dag_id=dag_id))
 
 
 

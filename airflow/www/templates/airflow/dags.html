@@ -143,29 +143,14 @@
                     <span class="glyphicon glyphicon-play-circle" aria-hidden="true" data-original-title="Trigger Dag"></span>
                 </a>
 
-                <!-- Tree -->
-                <a href="{{ url_for('airflow.tree', dag_id=dag.dag_id, num_runs=25) }}">
-                    <span class="glyphicon glyphicon-tree-deciduous" aria-hidden="true" data-original-title="Tree View"></span>
-                </a>
-
                 <!-- Graph -->
                 <a href="{{ url_for('airflow.graph', dag_id=dag.dag_id) }}">
-                    <span class="glyphicon glyphicon-certificate" aria-hidden="true" data-original-title="Graph View"></span>
+                  <span class="glyphicon glyphicon-certificate" aria-hidden="true" data-original-title="Graph View"></span>
                 </a>
 
-                <!-- Duration -->
-                <a href="{{ url_for('airflow.duration', dag_id=dag.dag_id) }}">
-                    <span class="glyphicon glyphicon-stats" aria-hidden="true" data-original-title="Tasks Duration"></span>
-                </a>
-
-                <!-- Retries -->
-                <a href="{{ url_for('airflow.tries', dag_id=dag.dag_id) }}">
-                    <span class="glyphicon glyphicon-duplicate" aria-hidden="true" data-original-title="Task Tries"></span>
-                </a>
-
-                <!-- Landing Times -->
-                <a href="{{ url_for("airflow.landing_times", dag_id=dag.dag_id) }}">
-                    <span class="glyphicon glyphicon-plane" aria-hidden="true" data-original-title="Landing Times"></span>
+                <!-- Tree -->
+                  <a href="{{ url_for('airflow.tree', dag_id=dag.dag_id, num_runs=25) }}">
+                  <span class="glyphicon glyphicon-tree-deciduous" aria-hidden="true" data-original-title="Tree View"></span>
                 </a>
 
                 <!-- Gantt -->

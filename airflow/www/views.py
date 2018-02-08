@@ -898,7 +898,6 @@ class Airflow(BaseView):
             "it should start any moment now.".format(ti))
         return redirect(origin)
 
-
     @expose('/trigger_dag')
     @login_required
     def trigger_dag(self):
@@ -910,12 +909,6 @@ class Airflow(BaseView):
             'airflow/trigger_dag.html', dag=dag, title=title, enumerate=enumerate, len=len,
             root=request.args.get('root'),
             demo_mode=conf.getboolean('webserver', 'demo_mode'))
-
-    # @app.route('/handle_data', methods=['POST'])
-    # def handle_data():
-    #     projectpath = request.form['projectFilepath']
-    #     # your code
-    #     # return a response
 
     @expose('/trigger_with_conf', methods=["POST"])
     @login_required

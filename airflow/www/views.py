@@ -950,8 +950,6 @@ class Airflow(BaseView):
             "it should start any moment now.".format(dag_id))
         return redirect(url_for('airflow.graph', dag_id=dag_id))
 
-
-
     @expose('/trigger')
     @login_required
     @wwwutils.action_logging

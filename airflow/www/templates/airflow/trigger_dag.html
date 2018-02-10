@@ -23,15 +23,38 @@
 
 {% block body %}
     {{ super() }}
+    <div class="container">
     <form action="{{ url_for('airflow.trigger_with_conf') }}" method="post">
       <input type="hidden" value="{{ dag.dag_id }}" name="dag_id">
       <input name=_csrf_token type=hidden value="{{ csrf_token() }}">
-      <input type="submit" value="Go!">
-
+      <!--<input type="submit" value="Go!">-->
+      <!--<a href="#settings" class="btn btn-info" data-toggle="collapse">Advanced Settings</a>-->
+      <h4 class="pull-right">
+          <a href="#" class="btn btn-info" onclick="$(this).closest('form').submit()">Go!</a>
+      </h4>
       <br>
       <br>
-        <table class="table table-striped table-bordered">
-      {% for key, task in dag.params.iteritems() %}
+      <table class="table table-striped">
+          {% for key, task in arguments.iteritems() %}
+              {% for index, param in enumerate(task) %}
+                  {% if index > 1 %}
+                      <tr>
+                  {% endif %}
+                          <td data-toggle="tooltip" title="{{task[param]['description']}}"><p>{{task[param]['name']}}</p></td>
+                      {% if 'required' in task[param] and task[param]['required'] == True %}
+                          <td><input type="text" size="50" name=conf.{{key}}.{{param}}></td>
+                      {% else %}
+                          <td><input type="text" size="50" placeholder="optional" name=conf.{{key}}.{{param}}></td>
+                      {% endif %}
+                      </tr>
+              {% endfor %}
+          {% endfor %}
+      </table>
+      <div>
+  <a href="#settings" class="btn btn-info" data-toggle="collapse">Advanced Settings</a>
+  <div id="settings" class="collapse">
+      <table class="table table-striped">
+      {% for key, task in options.iteritems() %}
           <tr>
               <td rowspan={{len(task)}}><p>{{key.replace('_', ' ').title()}}</p></td>
               {% for index, param in enumerate(task) %}
@@ -48,6 +71,8 @@
               {% endfor %}
       {% endfor %}
       </table>
+  </div>
+</div
     </form>
-
+</div>
 {% endblock %}

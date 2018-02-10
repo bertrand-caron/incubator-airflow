@@ -290,7 +290,8 @@ class Airflow(BaseView):
     @expose('/')
     @login_required
     def index(self):
-        return self.render('airflow/dags.html')
+        return self.render('airflow/dags.html',
+                           enable_all_views=conf.getboolean('roames', 'enable_all_views'))
 
     @expose('/chart_data')
     @data_profiling_required
@@ -903,12 +904,30 @@ class Airflow(BaseView):
     def trigger_dag(self):
         dag_id = request.args.get('dag_id')
         dag = dagbag.get_dag(dag_id)
-        title = dag_id
+        title = dag_id.replace('_', ' ').title()
+
+        # if no default set then the parameter is assumed to be an input argument (and not a setting) when rendering
+        # the form
+        arguments = {}
+        options = {}
+        num_args = 0
+        for task in dag.params:
+            for param in dag.params[task]:
+                if 'default' in dag.params[task][param]:
+                    options.setdefault(task, {})[param] = dag.params[task][param]
+                else:
+                    arguments.setdefault(task, {})[param] = dag.params[task][param]
+                    num_args = num_args + 1
 
         return self.render(
             'airflow/trigger_dag.html', dag=dag, title=title, enumerate=enumerate, len=len,
             root=request.args.get('root'),
-            demo_mode=conf.getboolean('webserver', 'demo_mode'))
+            demo_mode=conf.getboolean('webserver', 'demo_mode'),
+            enable_all_views=conf.getboolean('roames', 'enable_all_views'),
+            arguments=arguments,
+            options=options,
+            num_args=num_args
+        )
 
     @expose('/trigger_with_conf', methods=["POST"])
     @login_required
@@ -1707,7 +1726,7 @@ class Airflow(BaseView):
         session.close()
 
         dagbag.get_dag(dag_id)
-        flash("DAG [{}] is now fresh as a daisy".format(dag_id))
+        flash("Workflow [{}] is now fresh as a daisy".format(dag_id.replace('_', ' ').title()))
         return redirect(request.referrer)
 
     @expose('/refresh_all')

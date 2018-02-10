@@ -61,28 +61,16 @@ def create_app(config=None, testing=False):
         admin = Admin(
             app, name='Airflow',
             static_url_path='/admin',
-            index_view=views.HomeView(endpoint='', url='/admin', name="DAGs"),
+            index_view=views.HomeView(endpoint='', url='/admin', name="Workflows"),
             template_mode='bootstrap3',
         )
         av = admin.add_view
         vs = views
-        av(vs.Airflow(name='DAGs', category='DAGs'))
+        av(vs.Airflow(name='Workflows', category='Workflows'))
 
-        av(vs.QueryView(name='Ad Hoc Query', category="Data Profiling"))
-        av(vs.ChartModelView(
-            models.Chart, Session, name="Charts", category="Data Profiling"))
-        av(vs.KnownEventView(
-            models.KnownEvent,
-            Session, name="Known Events", category="Data Profiling"))
-        av(vs.SlaMissModelView(
-            models.SlaMiss,
-            Session, name="SLA Misses", category="Browse"))
-        av(vs.TaskInstanceModelView(models.TaskInstance,
-            Session, name="Task Instances", category="Browse"))
-        av(vs.LogModelView(
-            models.Log, Session, name="Logs", category="Browse"))
-        av(vs.JobModelView(
-            jobs.BaseJob, Session, name="Jobs", category="Browse"))
+
+        av(vs.DagRunModelView(
+            models.DagRun, Session, name="Runs"))
         av(vs.PoolModelView(
             models.Pool, Session, name="Pools", category="Admin"))
         av(vs.ConfigurationView(
@@ -93,20 +81,9 @@ def create_app(config=None, testing=False):
             models.Connection, Session, name="Connections", category="Admin"))
         av(vs.VariableView(
             models.Variable, Session, name="Variables", category="Admin"))
-        av(vs.XComView(
-            models.XCom, Session, name="XComs", category="Admin"))
-
-        admin.add_link(base.MenuLink(
-            category='Docs', name='Documentation',
-            url='http://pythonhosted.org/airflow/'))
-        admin.add_link(
-            base.MenuLink(category='Docs',
-                name='Github',url='https://github.com/apache/incubator-airflow'))
-
         av(vs.VersionView(name='Version', category="About"))
 
-        av(vs.DagRunModelView(
-            models.DagRun, Session, name="DAG Runs", category="Browse"))
+
         av(vs.DagModelView(models.DagModel, Session, name=None))
         # Hack to not add this view to the menu
         admin._menu = admin._menu[:-1]

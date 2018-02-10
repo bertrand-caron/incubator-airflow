@@ -781,6 +781,7 @@ class TaskInstance(Base, LoggingMixin):
     queued_dttm = Column(DateTime)
     pid = Column(Integer)
 
+
     __table_args__ = (
         Index('ti_dag_state', dag_id, state),
         Index('ti_state', state),

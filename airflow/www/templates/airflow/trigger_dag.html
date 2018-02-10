@@ -27,8 +27,6 @@
     <form action="{{ url_for('airflow.trigger_with_conf') }}" method="post">
       <input type="hidden" value="{{ dag.dag_id }}" name="dag_id">
       <input name=_csrf_token type=hidden value="{{ csrf_token() }}">
-      <!--<input type="submit" value="Go!">-->
-      <!--<a href="#settings" class="btn btn-info" data-toggle="collapse">Advanced Settings</a>-->
       <h4 class="pull-right">
           <a href="#" class="btn btn-info" onclick="$(this).closest('form').submit()">Go!</a>
       </h4>

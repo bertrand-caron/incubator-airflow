@@ -290,7 +290,8 @@ class Airflow(BaseView):
     @expose('/')
     @login_required
     def index(self):
-        return self.render('airflow/dags.html')
+        return self.render('airflow/dags.html',
+                           enable_all_views=conf.getboolean('roames', 'enable_all_views'))
 
     @expose('/chart_data')
     @data_profiling_required
@@ -897,6 +898,76 @@ class Airflow(BaseView):
             "Sent {} to the message queue, "
             "it should start any moment now.".format(ti))
         return redirect(origin)
+
+    @expose('/trigger_dag')
+    @login_required
+    def trigger_dag(self):
+        dag_id = request.args.get('dag_id')
+        dag = dagbag.get_dag(dag_id)
+        title = dag_id.replace('_', ' ').title()
+
+        # if no default set then the parameter is assumed to be an input argument (and not a setting) when rendering
+        # the form
+        arguments = {}
+        options = {}
+        num_args = 0
+        for task in dag.params:
+            for param in dag.params[task]:
+                if 'default' in dag.params[task][param]:
+                    options.setdefault(task, {})[param] = dag.params[task][param]
+                else:
+                    arguments.setdefault(task, {})[param] = dag.params[task][param]
+                    num_args = num_args + 1
+
+        return self.render(
+            'airflow/trigger_dag.html', dag=dag, title=title, enumerate=enumerate, len=len,
+            root=request.args.get('root'),
+            demo_mode=conf.getboolean('webserver', 'demo_mode'),
+            enable_all_views=conf.getboolean('roames', 'enable_all_views'),
+            arguments=arguments,
+            options=options,
+            num_args=num_args
+        )
+
+    @expose('/trigger_with_conf', methods=["POST"])
+    @login_required
+    @wwwutils.action_logging
+    @wwwutils.notify_owner
+    def trigger_with_conf(self):
+        dag_id = request.form['dag_id']
+        origin = request.args.get('origin') or "/admin/"
+        dag = dagbag.get_dag(dag_id)
+
+        if not dag:
+            flash("Cannot find dag {}".format(dag_id))
+            return redirect(origin)
+
+        execution_date = datetime.utcnow()
+        run_id = "manual__{0}".format(execution_date.isoformat())
+
+        dr = DagRun.find(dag_id=dag_id, run_id=run_id)
+        if dr:
+            flash("This run_id {} already exists".format(run_id))
+            return redirect(origin)
+
+        run_conf = {}
+        for input in request.form:
+            if input.startswith('conf.'):
+                task = input.split('.')[1]
+                param = input.split('.')[2]
+                run_conf.setdefault(task, {})[param] = request.form[input]
+        dag.create_dagrun(
+            run_id=run_id,
+            execution_date=execution_date,
+            state=State.RUNNING,
+            conf=run_conf,
+            external_trigger=True
+        )
+
+        flash(
+            "Triggered {}, "
+            "it should start any moment now.".format(dag_id))
+        return redirect(url_for('airflow.graph', dag_id=dag_id))
 
     @expose('/trigger')
     @login_required
@@ -1655,7 +1726,7 @@ class Airflow(BaseView):
         session.close()
 
         dagbag.get_dag(dag_id)
-        flash("DAG [{}] is now fresh as a daisy".format(dag_id))
+        flash("Workflow [{}] is now fresh as a daisy".format(dag_id.replace('_', ' ').title()))
         return redirect(request.referrer)
 
     @expose('/refresh_all')

@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block body %}
-  <h2>DAGs</h2>
+  <h2>Workflows</h2>
 
   <div id="main_content" style="display:none;">
     <div class="row">
@@ -44,19 +44,19 @@
     <table id="dags" class="table table-striped table-bordered">
         <thead>
             <tr>
-                <th></th>
-                <th width="12"><span id="pause_header" class="glyphicon glyphicon-info-sign" title="Use this toggle to pause a DAG. The scheduler won't schedule new tasks instances for a paused DAG. Tasks already running at pause time won't be affected."></span></th>
-                <th>DAG</th>
+                <th width="12"><span id="pause_header" class="glyphicon glyphicon-info-sign" title="Use this toggle to pause a workflow. The scheduler won't schedule new tasks instances for a paused workflow. Tasks already running at pause time won't be affected."></span></th>
+                <th>Workflow</th>
                 <th>Schedule</th>
-                <th>Owner</th>
+                {% if enable_all_views %}
                 <th style="padding-left: 5px;">Recent Tasks
-                  <span id="statuses_info" class="glyphicon glyphicon-info-sign" aria-hidden="true" title="Status of tasks from all active DAG runs or, if not currently active, from most recent run."></span>
+                  <span id="statuses_info" class="glyphicon glyphicon-info-sign" aria-hidden="true" title="Status of tasks from all active workflow runs or, if not currently active, from most recent run."></span>
                   <img id="loading" width="15" src="{{ url_for("static", filename="loading.gif") }}">
                 </th>
+                {% endif %}
                 <th style="padding-left: 5px;">Last Run <span id="statuses_info" class="glyphicon glyphicon-info-sign" aria-hidden="true" title="Execution Date/Time of Highest Dag Run."></span>
                 </th>
-                <th style="padding-left: 5px;">DAG Runs
-                  <span id="statuses_info" class="glyphicon glyphicon-info-sign" aria-hidden="true" title="Status of all previous DAG runs."></span>
+                <th style="padding-left: 5px;">Runs
+                  <span id="statuses_info" class="glyphicon glyphicon-info-sign" aria-hidden="true" title="Status of all previous workflow runs."></span>
                   <img id="loading" width="15" src="{{ url_for("static", filename="loading.gif") }}">
                 </th>
                 <th class="text-center">Links</th>
@@ -66,14 +66,6 @@
         {% for dag_id in dag_ids_in_page %}
             {% set dag = webserver_dags[dag_id] if dag_id in webserver_dags else None %}
             <tr>
-                <!-- Column 1: Edit dag -->
-                <td class="text-center" style="width:10px;">
-                    {% if dag_id in orm_dags %}
-                    <a href="/admin/dagmodel/edit/?id={{ dag_id }}" title="Info">
-                        <span class="glyphicon glyphicon-edit" aria-hidden="true"></span>
-                    </a>
-                    {% endif %}
-                </td>
 
                 <!-- Column 2: Turn dag on/off -->
                 <td>
@@ -86,10 +78,10 @@
                 <td>
                     {% if dag_id in webserver_dags %}
                     <a href="{{ url_for('airflow.'+dag.default_view, dag_id=dag.dag_id) }}" title="{{ dag.description }}">
-                        {{ dag_id }}
+                        {{ dag_id.replace('_', ' ').title() }}
                     </a>
                     {% else %}
-                        {{ dag_id }}
+                        {{ dag_id.replace('_', ' ').title() }}
                         <span class="glyphicon glyphicon-info-sign" class="info" aria-hidden="true" title="This DAG isn't available in the web server's DagBag object. It shows up in this list because the scheduler marked it as active in the metadata database."></span>
                     {% endif %}
                     {% if dag_id not in orm_dags %}
@@ -106,15 +98,12 @@
                     {% endif %}
                 </td>
 
-                <!-- Column 5: Dag Owners -->
-                <td>
-                  {{ dag.owner if dag else orm_dags[dag_id].owners }}
-                </td>
-
+                {% if enable_all_views %}
                 <!-- Column 6: Recent Tasks -->
                 <td style="padding:0px; width:200px; height:10px;">
                     <svg height="10" width="10" id='task-run-{{ dag.safe_dag_id }}' style="display: block;"></svg>
                 </td>
+                {% endif %}
 
                 <!-- Column 7: Last Run -->
                 <td class="text-nowrap latest_dag_run {{ dag.dag_id }}">
@@ -129,7 +118,7 @@
                   {% endif %}
                 </td>
 
-                <!-- Column 8: Dag Runs -->
+                <!-- Column 8: Workflow Runs -->
                 <td style="padding:0px; width:120px; height:10px;">
                     <svg height="10" width="10" id='dag-run-{{ dag.safe_dag_id }}' style="display: block;"></svg>
                 </td>
@@ -139,14 +128,8 @@
                 {% if dag %}
 
                 <!-- Trigger Dag -->
-                <a href="{{ url_for('airflow.trigger', dag_id=dag.dag_id) }}"
-                   onclick="return confirmTriggerDag('{{ dag.safe_dag_id }}')">
-                    <span class="glyphicon glyphicon-play-circle" aria-hidden="true" data-original-title="Trigger Dag"></span>
-                </a>
-
-                <!-- Tree -->
-                <a href="{{ url_for('airflow.tree', dag_id=dag.dag_id, num_runs=25) }}">
-                    <span class="glyphicon glyphicon-tree-deciduous" aria-hidden="true" data-original-title="Tree View"></span>
+                <a href="{{ url_for('airflow.trigger_dag', dag_id=dag.dag_id) }}">
+                    <span class="glyphicon glyphicon-play-circle" aria-hidden="true" data-original-title="Launch Workflow"></span>
                 </a>
 
                 <!-- Graph -->
@@ -154,6 +137,12 @@
                     <span class="glyphicon glyphicon-certificate" aria-hidden="true" data-original-title="Graph View"></span>
                 </a>
 
+                <!-- Tree -->
+                <a href="{{ url_for('airflow.tree', dag_id=dag.dag_id, num_runs=25) }}">
+                    <span class="glyphicon glyphicon-tree-deciduous" aria-hidden="true" data-original-title="Tree View"></span>
+                </a>
+
+                {% if enable_all_views %}
                 <!-- Duration -->
                 <a href="{{ url_for('airflow.duration', dag_id=dag.dag_id) }}">
                     <span class="glyphicon glyphicon-stats" aria-hidden="true" data-original-title="Tasks Duration"></span>
@@ -168,12 +157,14 @@
                 <a href="{{ url_for("airflow.landing_times", dag_id=dag.dag_id) }}">
                     <span class="glyphicon glyphicon-plane" aria-hidden="true" data-original-title="Landing Times"></span>
                 </a>
+                {% endif %}
 
                 <!-- Gantt -->
                 <a href="{{ url_for("airflow.gantt", dag_id=dag.dag_id) }}">
                     <span class="glyphicon glyphicon-align-left" aria-hidden="true" data-original-title="Gantt View"></span>
                 </a>
 
+                {% if enable_all_views %}
                 <!-- Code -->
                 <a href="{{ url_for("airflow.code", dag_id=dag.dag_id) }}">
                     <span class="glyphicon glyphicon-file" aria-hidden="true" data-original-title="Code View"></span>
@@ -183,6 +174,7 @@
                 <a href="/admin/log/?sort=1&amp;desc=1&amp;flt1_dag_id_equals={{ dag.dag_id }}">
                     <span class="glyphicon glyphicon-align-justify" aria-hidden="true" data-original-title="Logs"></span>
                 </a>
+                {% endif %}
                 {% endif %}
 
                 <!-- Refresh -->

@@ -1,0 +1,76 @@
+{#
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+#}
+{% extends "airflow/dag.html" %}
+
+{% block title %}
+    {{ title }}
+{% endblock %}
+
+{% block body %}
+    {{ super() }}
+    <div class="container">
+    <form action="{{ url_for('airflow.trigger_with_conf') }}" method="post">
+      <input type="hidden" value="{{ dag.dag_id }}" name="dag_id">
+      <input name=_csrf_token type=hidden value="{{ csrf_token() }}">
+      <h4 class="pull-right">
+          <a href="#" class="btn btn-info" onclick="$(this).closest('form').submit()">Go!</a>
+      </h4>
+      <br>
+      <br>
+      <table class="table table-striped">
+          {% for key, task in arguments.iteritems() %}
+              {% for index, param in enumerate(task) %}
+                  {% if index > 1 %}
+                      <tr>
+                  {% endif %}
+                          <td data-toggle="tooltip" title="{{task[param]['description']}}"><p>{{task[param]['name']}}</p></td>
+                      {% if 'required' in task[param] and task[param]['required'] == True %}
+                          <td><input type="text" size="50" name=conf.{{key}}.{{param}}></td>
+                      {% else %}
+                          <td><input type="text" size="50" placeholder="optional" name=conf.{{key}}.{{param}}></td>
+                      {% endif %}
+                      </tr>
+              {% endfor %}
+          {% endfor %}
+      </table>
+      <div>
+  <a href="#settings" class="btn btn-info" data-toggle="collapse">Advanced Settings</a>
+  <div id="settings" class="collapse">
+      <table class="table table-striped">
+      {% for key, task in options.iteritems() %}
+          <tr>
+              <td rowspan={{len(task)}}><p>{{key.replace('_', ' ').title()}}</p></td>
+              {% for index, param in enumerate(task) %}
+                  {% if index > 1 %}
+                      <tr>
+                  {% endif %}
+                      <td data-toggle="tooltip" title="{{task[param]['description']}}"><p>{{task[param]['name']}}</p></td>
+                      {% if 'default' in task[param] %}
+                          <td><input type="text" name=conf.{{key}}.{{param}} value={{task[param]['default']}}></td>
+                      {% else %}
+                          <td><input type="text" name=conf.{{key}}.{{param}}></td>
+                      {% endif %}
+              </tr>
+              {% endfor %}
+      {% endfor %}
+      </table>
+  </div>
+</div
+    </form>
+</div>
+{% endblock %}

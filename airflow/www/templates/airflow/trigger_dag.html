@@ -40,9 +40,9 @@
                   {% endif %}
                           <td data-toggle="tooltip" title="{{task[param]['description']}}"><p>{{task[param]['name']}}</p></td>
                       {% if 'required' in task[param] and task[param]['required'] == True %}
-                          <td><input type="text" size="50" name=conf.{{key}}.{{param}}></td>
+                          <td><input type="text" size="50" name="conf.{{key}}.{{param}}"></td>
                       {% else %}
-                          <td><input type="text" size="50" placeholder="optional" name=conf.{{key}}.{{param}}></td>
+                          <td><input type="text" size="50" placeholder="optional" name="conf.{{key}}.{{param}}"></td>
                       {% endif %}
                       </tr>
               {% endfor %}
@@ -61,9 +61,9 @@
                   {% endif %}
                       <td data-toggle="tooltip" title="{{task[param]['description']}}"><p>{{task[param]['name']}}</p></td>
                       {% if 'default' in task[param] %}
-                          <td><input type="text" name=conf.{{key}}.{{param}} value={{task[param]['default']}}></td>
+                          <td><input type="text" name="conf.{{key}}.{{param}}" value="{{task[param]['default']}}"></td>
                       {% else %}
-                          <td><input type="text" name=conf.{{key}}.{{param}}></td>
+                          <td><input type="text" name="conf.{{key}}.{{param}}"></td>
                       {% endif %}
               </tr>
               {% endfor %}

@@ -76,9 +76,11 @@
         <span id="error_msg">Oops.</span>
 </div>
 <hr style="margin-bottom: 0px;"/>
+{% if refresh_rate|int == 0 %}
 <button class="btn btn-default pull-right" id="refresh_button">
     <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>
 </button>
+{% endif %}
 <div id="svg_container">
 
     <svg width="{{ width }}" height="{{ height }}">
@@ -344,25 +346,29 @@
       $('#datatable_section').hide(1000);
     }
 
-    d3.select("#refresh_button").on("click",
-        function() {
-            $("#loading").css("display", "block");
-            $("div#svg_container").css("opacity", "0.2");
-            $.get(
-                "/admin/airflow/object/task_instances",
-                {dag_id : "{{ dag.dag_id }}", execution_date : "{{ execution_date }}"})
-            .done(
-                function(task_instances) {
-                    update_nodes_states(JSON.parse(task_instances));
-                    $("#loading").hide();
-                    $("div#svg_container").css("opacity", "1");
-                    $('#error').hide();
-                }
-            ).fail(function(jqxhr, textStatus, err) {
-                error(textStatus + ': ' + err);
-            });
-        }
-    );
+    function refreshGraph() {
+        $("#loading").css("display", "block");
+        $("div#svg_container").css("opacity", "0.2");
+        $.get(
+            "/admin/airflow/object/task_instances",
+            {dag_id : "{{ dag.dag_id }}", execution_date : "{{ execution_date }}"})
+        .done(
+            function(task_instances) {
+                update_nodes_states(JSON.parse(task_instances));
+                $("#loading").hide();
+                $("div#svg_container").css("opacity", "1");
+                $('#error').hide();
+            }
+        ).fail(function(jqxhr, textStatus, err) {
+            error(textStatus + ': ' + err);
+        });
+    }
+
+    {% if refresh_rate|int > 0 %}
+    window.setInterval(refreshGraph, {{ refresh_rate }})
+    {% else %}
+    d3.select("#refresh_button").on("click", refreshGraph);
+    {% endif %}
 
     </script>
 

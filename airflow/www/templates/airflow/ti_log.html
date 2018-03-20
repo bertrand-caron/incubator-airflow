@@ -20,6 +20,11 @@
 
 {% block body %}
   {{ super() }}
+
+  <div id="error" style="display: none; margin-top: 10px;" class="alert alert-danger" role="alert">
+      <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+      <span id="error_msg">Oops.</span>
+  </div>
   <h4>{{ title }}</h4>
   <ul class="nav nav-pills" role="tablist">
     {% for log in logs %}
@@ -31,10 +36,53 @@
     {% endfor %}
   </ul>
   <div class="tab-content">
+    <button class="btn btn-default pull-right refresh_button" style="display: inline-flex;">
+        <span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh Logs"></span>
+    </button>
     {% for log in logs %}
       <div role="tabpanel" class="tab-pane {{ 'active' if loop.last else '' }}" id="{{ loop.index }}">
         <pre id="attempt-{{ loop.index }}">{{ log }}</pre>
       </div>
     {% endfor %}
+    <img id="loading" alt="spinner" src="{{ url_for('static', filename='loading.gif') }}"
+         style="margin: auto; display: none;">
+    <button class="btn btn-default pull-right refresh_button" style="margin-bottom: 10px;">
+        <span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh Logs"></span>
+    </button>
   </div>
+{% endblock %}
+
+{% block tail %}
+{{ super() }}
+<script>
+    function error(msg) {
+        $('#error_msg').html(msg);
+        $('#error').show();
+        reset();
+    }
+
+    function reset() {
+        $('#loading').css('display', 'none');
+        $('div.tab-pane.active').show();
+        $(".refresh_button").removeClass('disabled');
+    }
+
+    $(".refresh_button").on("click", function() {
+        $("#loading").css('display', 'block');
+        $("div.tab-pane.active").hide();
+        $('#error').hide();
+        $(".refresh_button").addClass('disabled');
+        $.get(decodeURIComponent(window.location.href) + '&log_id=' + $("div.tab-pane.active").attr('id')
+        ).done(
+            function(data) {
+                $("div.tab-pane.active").html(data);
+                reset();
+                window.scrollTo(0, document.body.scrollHeight);
+            }
+        ).fail(function(jqxhr, textStatus, err) {
+            error(textStatus + ': ' + err);
+        });
+    });
+
+</script>
 {% endblock %}

@@ -715,6 +715,13 @@ class Airflow(BaseView):
                 logs = ["Task log handler {} does not support read logs.\n{}\n" \
                             .format(task_log_reader, str(e))]
 
+        if request.is_xhr:
+            log_id = int(request.args.get('log_id'))
+            log = logs[log_id - 1]
+            if PY2 and not isinstance(log, unicode):
+                log = log.decode('utf-8')
+            return log
+
         for i, log in enumerate(logs):
             if PY2 and not isinstance(log, unicode):
                 logs[i] = log.decode('utf-8')

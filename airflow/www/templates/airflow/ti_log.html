@@ -35,9 +35,6 @@
       </li>
     {% endfor %}
   </ul>
-  <button class="btn btn-default pull-right refresh_button" style="display: inline-flex;">
-      <span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh Logs"></span>
-  </button>
   <div class="tab-content">
     {% for log in logs %}
       <div role="tabpanel" class="tab-pane {{ 'active' if loop.last else '' }}" id="{{ loop.index }}">
@@ -47,7 +44,7 @@
     <img id="loading" alt="spinner" src="{{ url_for('static', filename='loading.gif') }}"
          style="margin: auto; display: none;">
   </div>
-  <button class="btn btn-default pull-right refresh_button" style="margin-bottom: 10px;">
+  <button class="btn btn-default pull-left refresh_button" style="margin-bottom: 10px;">
       <span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh Logs"></span>
   </button>
 {% endblock %}
@@ -63,20 +60,18 @@
 
     function reset() {
         $('#loading').css('display', 'none');
-        $('div.tab-pane.active').show();
         $(".refresh_button").removeClass('disabled');
     }
 
     $(".refresh_button").on("click", function() {
         $("#loading").css('display', 'block');
-        $("div.tab-pane.active").hide();
         $('#error').hide();
         $(".refresh_button").addClass('disabled');
         $.get(decodeURIComponent(window.location.href) + '&log_id=' + $("div.tab-pane.active").attr('id')
         ).done(
             function(data) {
                 var attempt = $("div.tab-pane.active").attr('id')
-                $("pre#attempt-" + attempt).html(data);
+                $("pre#attempt-" + attempt).text(data.replace(/\r\n/g, '\n'));
                 reset();
                 window.scrollTo(0, document.body.scrollHeight);
             }

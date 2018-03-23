@@ -693,6 +693,9 @@ class Airflow(BaseView):
         dag_id = request.args.get('dag_id')
         task_id = request.args.get('task_id')
         execution_date = request.args.get('execution_date')
+        log_id = 0
+        if 'log_id' in request.args:
+            log_id = int(request.args.get('log_id'))
         dttm = dateutil.parser.parse(execution_date)
         form = DateTimeForm(data={'execution_date': dttm})
         dag = dagbag.get_dag(dag_id)
@@ -710,14 +713,13 @@ class Airflow(BaseView):
                             if handler.name == task_log_reader), None)
             try:
                 ti.task = dag.get_task(ti.task_id)
-                logs = handler.read(ti)
+                logs = handler.read(ti, try_number=(log_id if log_id > 0 else None))
             except AttributeError as e:
                 logs = ["Task log handler {} does not support read logs.\n{}\n" \
                             .format(task_log_reader, str(e))]
 
-        if request.is_xhr:
-            log_id = int(request.args.get('log_id'))
-            log = logs[log_id - 1]
+        if request.is_xhr and log_id > 0:
+            log = logs[0]
             if PY2 and not isinstance(log, unicode):
                 log = log.decode('utf-8')
             return log
@@ -1354,15 +1356,31 @@ class Airflow(BaseView):
 
         arrange = request.args.get('arrange', dag.orientation)
 
+        refresh_rate = 0
+        try:
+            refresh_rate = conf.getint('webserver', 'graph_refresh_rate') * 1000
+        except AirflowConfigException:
+            pass
+
         nodes = []
         edges = []
         for task in dag.tasks:
+            html =  '<div style="padding: 5px 10px 5px 10px">'
+            html += ' <text text-anchor="left" style="fill:%s;"><tspan dy="1em" x="1">%s</tspan></text>' % (task.ui_fgcolor, task.task_id)
+            if task.support_progress and refresh_rate > 0:
+                html += ' <div id="progress_%s" class="progress" style="fill: %s;">' % (task.task_id, task.ui_color)
+                html += '  <div id="progress_completed_%s" class="progress-bar progress-bar-success" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += '  <div id="progress_warning_%s" class="progress-bar progress-bar-warning" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += '  <div id="progress_failed_%s" class="progress-bar progress-bar-danger" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += '  <div id="progress_ready_%s" class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += ' </div>'
+            html += '</div>'
             nodes.append({
                 'id': task.task_id,
                 'value': {
-                    'label': task.task_id,
-                    'labelStyle': "fill:{0};".format(task.ui_fgcolor),
-                    'style': "fill:{0};".format(task.ui_color),
+                    'labelType': 'html',
+                    'label': html,
+                    'style': "fill:{0};".format(task.ui_color)
                 }
             })
 
@@ -1424,10 +1442,6 @@ class Airflow(BaseView):
         session.commit()
         session.close()
         doc_md = markdown.markdown(dag.doc_md) if hasattr(dag, 'doc_md') and dag.doc_md else ''
-
-        refresh_rate = conf.getint('webserver', 'graph_refresh_rate')
-        if not refresh_rate:
-            refresh_rate = 0
 
         return self.render(
             'airflow/graph.html',

@@ -369,6 +369,7 @@
     function error(msg){
       $('#error_msg').html(msg);
       $('#error').show();
+      $('#error').delay(10000).fadeOut('slow');
       $('#loading').hide();
       $('#chart_section').hide(1000);
       $('#datatable_section').hide(1000);

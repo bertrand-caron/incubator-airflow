@@ -35,16 +35,23 @@
       <table class="table table-striped">
           {% for key, task in arguments.iteritems() %}
               {% for index, param in enumerate(task) %}
-                  {% if index > 1 %}
-                      <tr>
-                  {% endif %}
-                          <td data-toggle="tooltip" title="{{task[param]['description']}}"><p>{{task[param]['name']}}</p></td>
+                  <tr>
+                      <td data-toggle="tooltip" title="{{task[param]['description']}}"><p>{{task[param]['name']}}</p></td>
                       {% if 'required' in task[param] and task[param]['required'] == True %}
-                          <td><input type="text" size="50" name="conf.{{key}}.{{param}}"></td>
+                        {% if 'default' in task[param] %}
+                          <td><input type="text" size="50" name="conf.{{key}}.{{param}}" value="{{task[param]['default']}}">
+                        {% else %}
+                          <td><input type="text" size="50" name="conf.{{key}}.{{param}}">
+                        {% endif %}
                       {% else %}
-                          <td><input type="text" size="50" placeholder="optional" name="conf.{{key}}.{{param}}"></td>
+                          <td><input type="text" size="50" placeholder="optional" name="conf.{{key}}.{{param}}">
                       {% endif %}
-                      </tr>
+                      {% if 'data_provider' not in task[param] %}
+                        </td>
+                      {% else %}
+                        <input type="button" size="20" value="..." id="dataprovider_{{key}}.{{param}}" onclick="call_dataprovider('conf.{{key}}.{{param}}', {{ task[param]['data_provider'] }});" /></td>
+                      {% endif %}
+                  </tr>
               {% endfor %}
           {% endfor %}
       </table>
@@ -56,7 +63,7 @@
           <tr>
               <td rowspan={{len(task)}}><p>{{key.replace('_', ' ').title()}}</p></td>
               {% for index, param in enumerate(task) %}
-                  {% if index > 1 %}
+                  {% if index > 0 %}
                       <tr>
                   {% endif %}
                       <td data-toggle="tooltip" title="{{task[param]['description']}}"><p>{{task[param]['name']}}</p></td>
@@ -73,4 +80,59 @@
 </div
     </form>
 </div>
+
+<!-- Modal for dag -->
+<div class="modal fade" id="providerModal"
+      tabindex="-1" role="dialog"
+    aria-labelledby="providerModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="providerModalLabel">
+          <span id='providerModalTitle'></span>
+        </h4>
+      </div>
+      <div class="modal-body">
+        <div id='providerModalBody'>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block tail %}
+<script>
+
+function call_modal_provider(modal_body) {
+  $('#providerModalBody').html(modal_body);
+  $('#providerModal').modal({});
+  $("#providerModal").css("margin-top","0px");
+}
+
+function call_dataprovider(target, params) {
+  var params_ary = params.split(' ');
+  var get_url = "{{ url_for(params_ary[0]) }}";
+  if (params_ary.length > 1) {
+    get_url += "?" + params_ary[1];
+  }
+  get_url += "&target_name=" + target;
+
+  $get(get_url)
+    .done(function (resp) {
+      call_modal_provider(resp);
+    })
+    .fail(function (jqxhr, textStatus, err) {
+        error(textStatus + ': ' + err);
+        alert(err);
+        $("#s3download").html("S3 path not found.")
+    });
+}
+
+</script>
 {% endblock %}

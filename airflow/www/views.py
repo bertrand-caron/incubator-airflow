@@ -922,7 +922,10 @@ class Airflow(BaseView):
         num_args = 0
         for task in dag.params:
             for param in dag.params[task]:
-                if 'default' in dag.params[task][param]:
+                if 'required' in dag.params[task][param] and dag.params[task][param]['required'] == True:
+                    arguments.setdefault(task, {})[param] = dag.params[task][param]
+                    num_args = num_args + 1
+                elif 'default' in dag.params[task][param]:
                     options.setdefault(task, {})[param] = dag.params[task][param]
                 else:
                     arguments.setdefault(task, {})[param] = dag.params[task][param]

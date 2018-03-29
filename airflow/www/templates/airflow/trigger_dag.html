@@ -117,7 +117,7 @@ function call_modal_provider(modal_body) {
 
 function call_dataprovider(target, params) {
   var params_ary = params.split(' ');
-  var get_url = "{{ url_for(roames_data_provider.index]) }}";
+  var get_url = "{{ url_for(roames_data_provider.index) }}";
   if (params_ary.length == 0) {
     $('#error_msg').html(msg);
     $('#error').show();

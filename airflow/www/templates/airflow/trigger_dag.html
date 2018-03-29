@@ -117,9 +117,16 @@ function call_modal_provider(modal_body) {
 
 function call_dataprovider(target, params) {
   var params_ary = params.split(' ');
-  var get_url = "{{ url_for(params_ary[0]) }}";
+  var get_url = "{{ url_for(roames_data_provider.index]) }}";
+  if (params_ary.length == 0) {
+    $('#error_msg').html(msg);
+    $('#error').show();
+    $('#error').delay(10000).fadeOut('slow');
+  }
+
+  get_url += "?" + params_ary[0];
   if (params_ary.length > 1) {
-    get_url += "?" + params_ary[1];
+    get_url += "&provider_type=" + params_ary[1];
   }
   get_url += "&target_name=" + target;
 

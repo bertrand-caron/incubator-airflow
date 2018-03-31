@@ -49,7 +49,7 @@
                       {% if 'data_provider' not in task[param] %}
                         </td>
                       {% else %}
-                        <input type="button" size="20" value="..." id="dataprovider_{{key}}.{{param}}" onclick="call_dataprovider('conf.{{key}}.{{param}}', {{ task[param]['data_provider'] }});" /></td>
+                        <input type="button" size="20" value="..." id="dataprovider_{{key}}.{{param}}" onclick="call_dataprovider('conf.{{key}}.{{param}}', '{{ task[param]['data_provider'] }}');" /></td>
                       {% endif %}
                   </tr>
               {% endfor %}

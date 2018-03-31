@@ -109,8 +109,9 @@
 {% block tail %}
 <script>
 
-function call_modal_provider(modal_body) {
-  $('#providerModalBody').html(modal_body);
+function call_modal_provider(modal_response) {
+  $('#providerModalTitle').html(modal_response.title);
+  $('#providerModalBody').html(modal_response.body);
   $('#providerModal').modal({});
   $("#providerModal").css("margin-top","0px");
 }
@@ -135,9 +136,9 @@ function call_dataprovider(target, params) {
       call_modal_provider(resp);
     })
     .fail(function (jqxhr, textStatus, err) {
-        error(textStatus + ': ' + err);
-        alert(err);
-        $("#s3download").html("S3 path not found.")
+        $('#error_msg').html(err);
+        $('#error').show();
+        $('#error').delay(10000).fadeOut('slow');
     });
 }
 

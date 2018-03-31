@@ -117,7 +117,7 @@ function call_modal_provider(modal_body) {
 
 function call_dataprovider(target, params) {
   var params_ary = params.split(' ');
-  var get_url = "{{ url_for('data_provider_plugin.index') }}";
+  var get_url = "{{ url_for('dataproviderview.index') }}";
   if (params_ary.length == 0) {
     $('#error_msg').html(msg);
     $('#error').show();

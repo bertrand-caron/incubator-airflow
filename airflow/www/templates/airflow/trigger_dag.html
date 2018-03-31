@@ -124,11 +124,11 @@ function call_dataprovider(target, params) {
     $('#error').delay(10000).fadeOut('slow');
   }
 
-  get_url += "?" + params_ary[0];
+  get_url += "?target_name=" + target;
+  get_url += "&provider_type=" + params_ary[0];
   if (params_ary.length > 1) {
-    get_url += "&provider_type=" + params_ary[1];
+    get_url += "&" + params_ary[1];
   }
-  get_url += "&target_name=" + target;
 
   $.get(get_url)
     .done(function (resp) {

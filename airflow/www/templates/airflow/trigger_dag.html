@@ -130,7 +130,7 @@ function call_dataprovider(target, params) {
   }
   get_url += "&target_name=" + target;
 
-  $get(get_url)
+  $.get(get_url)
     .done(function (resp) {
       call_modal_provider(resp);
     })

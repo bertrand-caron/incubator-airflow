@@ -693,6 +693,9 @@ class Airflow(BaseView):
         dag_id = request.args.get('dag_id')
         task_id = request.args.get('task_id')
         execution_date = request.args.get('execution_date')
+        log_id = 0
+        if 'log_id' in request.args:
+            log_id = int(request.args.get('log_id'))
         dttm = dateutil.parser.parse(execution_date)
         form = DateTimeForm(data={'execution_date': dttm})
         dag = dagbag.get_dag(dag_id)
@@ -710,10 +713,16 @@ class Airflow(BaseView):
                             if handler.name == task_log_reader), None)
             try:
                 ti.task = dag.get_task(ti.task_id)
-                logs = handler.read(ti)
+                logs = handler.read(ti, try_number=(log_id if log_id > 0 else None))
             except AttributeError as e:
                 logs = ["Task log handler {} does not support read logs.\n{}\n" \
                             .format(task_log_reader, str(e))]
+
+        if request.is_xhr and log_id > 0:
+            log = logs[0]
+            if PY2 and not isinstance(log, unicode):
+                log = log.decode('utf-8')
+            return log
 
         for i, log in enumerate(logs):
             if PY2 and not isinstance(log, unicode):
@@ -913,7 +922,10 @@ class Airflow(BaseView):
         num_args = 0
         for task in dag.params:
             for param in dag.params[task]:
-                if 'default' in dag.params[task][param]:
+                if 'required' in dag.params[task][param] and dag.params[task][param]['required'] == True:
+                    arguments.setdefault(task, {})[param] = dag.params[task][param]
+                    num_args = num_args + 1
+                elif 'default' in dag.params[task][param]:
                     options.setdefault(task, {})[param] = dag.params[task][param]
                 else:
                     arguments.setdefault(task, {})[param] = dag.params[task][param]
@@ -1347,15 +1359,31 @@ class Airflow(BaseView):
 
         arrange = request.args.get('arrange', dag.orientation)
 
+        refresh_rate = 0
+        try:
+            refresh_rate = conf.getint('webserver', 'graph_refresh_rate') * 1000
+        except AirflowConfigException:
+            pass
+
         nodes = []
         edges = []
         for task in dag.tasks:
+            html =  '<div style="padding: 5px 10px 5px 10px">'
+            html += ' <text text-anchor="left" style="fill:%s;"><tspan dy="1em" x="1">%s</tspan></text>' % (task.ui_fgcolor, task.task_id)
+            if task.support_progress and refresh_rate > 0:
+                html += ' <div id="progress_%s" class="progress" style="fill: %s;">' % (task.task_id, task.ui_color)
+                html += '  <div id="progress_completed_%s" class="progress-bar progress-bar-success" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += '  <div id="progress_warning_%s" class="progress-bar progress-bar-warning" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += '  <div id="progress_failed_%s" class="progress-bar progress-bar-danger" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += '  <div id="progress_ready_%s" class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += ' </div>'
+            html += '</div>'
             nodes.append({
                 'id': task.task_id,
                 'value': {
-                    'label': task.task_id,
-                    'labelStyle': "fill:{0};".format(task.ui_fgcolor),
-                    'style': "fill:{0};".format(task.ui_color),
+                    'labelType': 'html',
+                    'label': html,
+                    'style': "fill:{0};".format(task.ui_color)
                 }
             })
 
@@ -1437,7 +1465,8 @@ class Airflow(BaseView):
             task_instances=json.dumps(task_instances, indent=2),
             tasks=json.dumps(tasks, indent=2),
             nodes=json.dumps(nodes, indent=2),
-            edges=json.dumps(edges, indent=2), )
+            edges=json.dumps(edges, indent=2), 
+            refresh_rate=refresh_rate)
 
     @expose('/duration')
     @login_required

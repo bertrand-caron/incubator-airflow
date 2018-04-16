@@ -63,7 +63,7 @@ from airflow import configuration as conf
 from airflow import models
 from airflow import settings
 from airflow.api.common.experimental.mark_tasks import set_dag_run_state
-from airflow.exceptions import AirflowException
+from airflow.exceptions import AirflowException, AirflowConfigException
 from airflow.settings import Session
 from airflow.models import XCom, DagRun
 from airflow.ti_deps.dep_context import DepContext, QUEUE_DEPS, SCHEDULER_DEPS

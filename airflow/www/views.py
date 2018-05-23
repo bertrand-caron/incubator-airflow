@@ -931,6 +931,9 @@ class Airflow(BaseView):
                     arguments.setdefault(task, {})[param] = dag.params[task][param]
                     num_args = num_args + 1
 
+        execution_date = datetime.utcnow()
+        run_id = "manual__{0}".format(execution_date.isoformat())
+
         return self.render(
             'airflow/trigger_dag.html', dag=dag, title=title, enumerate=enumerate, len=len,
             root=request.args.get('root'),
@@ -938,7 +941,8 @@ class Airflow(BaseView):
             enable_all_views=conf.getboolean('roames', 'enable_all_views'),
             arguments=arguments,
             options=options,
-            num_args=num_args
+            num_args=num_args,
+            run_id=run_id
         )
 
     @expose('/trigger_with_conf', methods=["POST"])
@@ -968,6 +972,8 @@ class Airflow(BaseView):
                 task = input.split('.')[1]
                 param = input.split('.')[2]
                 run_conf.setdefault(task, {})[param] = request.form[input]
+            elif input == 'run_id':
+                run_id = request.form[input]
         dag.create_dagrun(
             run_id=run_id,
             execution_date=execution_date,
@@ -1465,7 +1471,7 @@ class Airflow(BaseView):
             task_instances=json.dumps(task_instances, indent=2),
             tasks=json.dumps(tasks, indent=2),
             nodes=json.dumps(nodes, indent=2),
-            edges=json.dumps(edges, indent=2), 
+            edges=json.dumps(edges, indent=2),
             refresh_rate=refresh_rate)
 
     @expose('/duration')

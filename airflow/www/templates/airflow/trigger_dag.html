@@ -27,11 +27,22 @@
     <form action="{{ url_for('airflow.trigger_with_conf') }}" method="post">
       <input type="hidden" value="{{ dag.dag_id }}" name="dag_id">
       <input name=_csrf_token type=hidden value="{{ csrf_token() }}">
-      <h4 class="pull-right">
-          <a href="#" class="btn btn-info" onclick="$(this).closest('form').submit()">Go!</a>
-      </h4>
       <br>
-      <br>
+      <table class="pull-right">
+        <tr>
+          <td data-toggle="tooltip" title="Set custom run_id for this workflow run">
+            <label class="control-label" style="padding: 5px">Workflow Run Id  </label>
+          </td>
+          <td data-toggle="tooltip" title="Set custom run_id for this workflow run">
+            <input class="form-control" id="run_id" name="run_id" type="text" size="50" value="{{run_id}}">
+          </td>
+          <td>
+            <h4 class="pull-right">
+                <a href="#" class="btn btn-info" onclick="$(this).closest('form').submit()">Go!</a>
+            </h4>
+          </td>
+        </tr>
+      </table>
       <table class="table table-striped">
           {% for key, task in arguments.iteritems() %}
               {% for index, param in enumerate(task) %}

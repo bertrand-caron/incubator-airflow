@@ -21,8 +21,6 @@ import flask_login
 # Need to expose these downstream
 # pylint: disable=unused-import
 from flask_login import (current_user,
-                         logout_user,
-                         login_required,
                          login_user)
 # pylint: enable=unused-import
 
@@ -30,10 +28,9 @@ from flask import url_for, redirect, request
 
 from flask_oauthlib.client import OAuth
 
-from airflow import models, configuration, settings
+from airflow import models, configuration
 from airflow.utils.db import provide_session
 from airflow.utils.log.logging_mixin import LoggingMixin
-import requests
 
 log = LoggingMixin().log
 
@@ -79,7 +76,6 @@ class AuthenticationError(Exception):
 class Auth0AuthBackend(object):
 
     def __init__(self):
-        # self.google_host = get_config_param('host')
         self.login_manager = flask_login.LoginManager()
         self.login_manager.login_view = 'airflow.login'
         self.flask_app = None
@@ -114,9 +110,8 @@ class Auth0AuthBackend(object):
         return self.auth0_oauth.authorize(callback=url_for(
             'auth0_callback',
             _external=True,
-            _scheme='https'),
+            _scheme=get_config_param('auth0_callback_scheme')),
             state=request.args.get('next') or request.referrer or None)
-        # auth0.authorize_redirect(redirect_uri='YOUR_CALLBACK_URL', audience='https://YOUR_AUTH0_DOMAIN/userinfo')
 
     @provide_session
     def load_user(self, userid, session=None):
@@ -142,23 +137,13 @@ class Auth0AuthBackend(object):
                 )
 
             user_info_url = 'https://%s/userinfo' % self.auth0_domain
-            headers = {'authorization': 'Bearer ' + resp['access_token']}
-            resp = requests.get(user_info_url, headers=headers)
+
+            resp = self.auth0_oauth.get(user_info_url, token=(resp['access_token'], ''))
 
             if not resp or resp.status != 200:
                 raise AuthenticationError(
                     'Failed to fetch user profile, status ({0})'.format(
                         resp.status if resp else 'None'))
-
-            userinfo = resp.json()
-
-            # Store the user information in flask session.
-            session['jwt_payload'] = userinfo
-            session['profile'] = {
-                'user_id': userinfo['sub'],
-                'name': userinfo['name'],
-                'picture': userinfo['picture']
-            }
 
             username = resp.data['name']
             email = resp.data['email']

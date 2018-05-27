@@ -71,6 +71,8 @@ def create_app(config=None, testing=False):
 
         av(vs.DagRunModelView(
             models.DagRun, Session, name="Runs"))
+        av(vs.TaskInstanceModelView(
+            models.TaskInstance, Session, name="Tasks"))
         av(vs.PoolModelView(
             models.Pool, Session, name="Pools", category="Admin"))
         av(vs.ConfigurationView(

@@ -94,14 +94,12 @@
           <!--Details-->
         <!--</a>-->
       <!--</li>-->
-      {% if enable_all_views %}
       <li>
         <a href="{{ url_for("airflow.code", dag_id=dag.dag_id, root=root) }}">
           <span class="glyphicon glyphicon-file" aria-hidden="true"></span>
           Code
         </a>
       </li>
-      {% endif %}
       <li>
         <a href="{{ url_for("airflow.refresh", dag_id=dag.dag_id) }}" title="Refresh">
           <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>

@@ -67,7 +67,7 @@ from airflow import settings
 from airflow.api.common.experimental.mark_tasks import (set_dag_run_state_to_running,
                                                         set_dag_run_state_to_success,
                                                         set_dag_run_state_to_failed)
-from airflow.exceptions import AirflowException
+from airflow.exceptions import AirflowException, AirflowConfigException
 from airflow.models import BaseOperator
 from airflow.models import XCom, DagRun
 from airflow.operators.subdag_operator import SubDagOperator
@@ -372,7 +372,8 @@ class Airflow(BaseView):
     @expose('/')
     @login_required
     def index(self):
-        return self.render('airflow/dags.html')
+        return self.render('airflow/dags.html',
+                           enable_all_views=conf.getboolean('roames', 'enable_all_views'))
 
     @expose('/chart_data')
     @data_profiling_required
@@ -833,6 +834,9 @@ class Airflow(BaseView):
         dag_id = request.args.get('dag_id')
         task_id = request.args.get('task_id')
         execution_date = request.args.get('execution_date')
+        log_id = 0
+        if 'log_id' in request.args:
+            log_id = int(request.args.get('log_id'))
         dttm = pendulum.parse(execution_date)
         form = DateTimeForm(data={'execution_date': dttm})
         dag = dagbag.get_dag(dag_id)
@@ -841,8 +845,30 @@ class Airflow(BaseView):
             models.TaskInstance.dag_id == dag_id,
             models.TaskInstance.task_id == task_id,
             models.TaskInstance.execution_date == dttm).first()
+        if ti is None:
+            logs = ["*** Task instance did not exist in the DB\n"]
+        else:
+            logger = logging.getLogger('airflow.task')
+            task_log_reader = conf.get('core', 'task_log_reader')
+            handler = next((handler for handler in logger.handlers
+                            if handler.name == task_log_reader), None)
+            try:
+                ti.task = dag.get_task(ti.task_id)
+                logs = handler.read(ti, try_number=(log_id if log_id > 0 else None))
+            except AttributeError as e:
+                logs = ["Task log handler {} does not support read logs.\n{}\n" \
+                            .format(task_log_reader, str(e))]
 
-        logs = [''] * (ti.next_try_number - 1 if ti is not None else 0)
+        if request.is_xhr and log_id > 0:
+            log = logs[0]
+            if PY2 and not isinstance(log, unicode):
+                log = log.decode('utf-8')
+            return log
+
+        for i, log in enumerate(logs):
+            if PY2 and not isinstance(log, unicode):
+                logs[i] = log.decode('utf-8')
+
         return self.render(
             'airflow/ti_log.html',
             logs=logs, dag=dag, title="Log by attempts",
@@ -1068,6 +1094,87 @@ class Airflow(BaseView):
               " disappear.".format(dag_id))
         # Upon successful delete return to origin
         return redirect(origin)
+
+    @expose('/trigger_dag')
+    @login_required
+    @wwwutils.action_logging
+    @wwwutils.notify_owner
+    def trigger_dag(self):
+        dag_id = request.args.get('dag_id')
+        dag = dagbag.get_dag(dag_id)
+        title = dag_id.replace('_', ' ').title()
+
+        # if no default set then the parameter is assumed to be an input argument (and not a setting) when rendering
+        # the form
+        arguments = {}
+        options = {}
+        num_args = 0
+        for task in dag.params:
+            for param in dag.params[task]:
+                if 'required' in dag.params[task][param] and dag.params[task][param]['required'] == True:
+                    arguments.setdefault(task, {})[param] = dag.params[task][param]
+                    num_args = num_args + 1
+                elif 'default' in dag.params[task][param]:
+                    options.setdefault(task, {})[param] = dag.params[task][param]
+                else:
+                    arguments.setdefault(task, {})[param] = dag.params[task][param]
+                    num_args = num_args + 1
+
+        execution_date = datetime.utcnow()
+        run_id = "manual__{0}".format(execution_date.isoformat())
+
+        return self.render(
+            'airflow/trigger_dag.html', dag=dag, title=title, enumerate=enumerate, len=len,
+            root=request.args.get('root'),
+            demo_mode=conf.getboolean('webserver', 'demo_mode'),
+            enable_all_views=conf.getboolean('roames', 'enable_all_views'),
+            arguments=arguments,
+            options=options,
+            num_args=num_args,
+            run_id=run_id
+        )
+
+    @expose('/trigger_with_conf', methods=["POST"])
+    @login_required
+    @wwwutils.action_logging
+    @wwwutils.notify_owner
+    def trigger_with_conf(self):
+        dag_id = request.form['dag_id']
+        origin = request.args.get('origin') or "/admin/"
+        dag = dagbag.get_dag(dag_id)
+
+        if not dag:
+            flash("Cannot find dag {}".format(dag_id))
+            return redirect(origin)
+
+        execution_date = datetime.utcnow()
+        run_id = "manual__{0}".format(execution_date.isoformat())
+
+        dr = DagRun.find(dag_id=dag_id, run_id=run_id)
+        if dr:
+            flash("This run_id {} already exists".format(run_id))
+            return redirect(origin)
+
+        run_conf = {}
+        for input in request.form:
+            if input.startswith('conf.'):
+                task = input.split('.')[1]
+                param = input.split('.')[2]
+                run_conf.setdefault(task, {})[param] = request.form[input]
+            elif input == 'run_id':
+                run_id = request.form[input]
+        dag.create_dagrun(
+            run_id=run_id,
+            execution_date=execution_date,
+            state=State.RUNNING,
+            conf=run_conf,
+            external_trigger=True
+        )
+
+        flash(
+            "Triggered {}, "
+            "it should start any moment now.".format(dag_id))
+        return redirect(url_for('airflow.graph', dag_id=dag_id))
 
     @expose('/trigger')
     @login_required
@@ -1521,15 +1628,31 @@ class Airflow(BaseView):
 
         arrange = request.args.get('arrange', dag.orientation)
 
+        refresh_rate = 0
+        try:
+            refresh_rate = conf.getint('webserver', 'graph_refresh_rate') * 1000
+        except AirflowConfigException:
+            pass
+
         nodes = []
         edges = []
         for task in dag.tasks:
+            html =  '<div style="padding: 5px 10px 5px 10px">'
+            html += ' <text text-anchor="left" style="fill:%s;"><tspan dy="1em" x="1">%s</tspan></text>' % (task.ui_fgcolor, task.task_id)
+            if task.support_progress and refresh_rate > 0:
+                html += ' <div id="progress_%s" class="progress" style="fill: %s;">' % (task.task_id, task.ui_color)
+                html += '  <div id="progress_completed_%s" class="progress-bar progress-bar-success" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += '  <div id="progress_warning_%s" class="progress-bar progress-bar-warning" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += '  <div id="progress_failed_%s" class="progress-bar progress-bar-danger" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += '  <div id="progress_ready_%s" class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" style="width:%s"></div>' % (task.task_id, '0%')
+                html += ' </div>'
+            html += '</div>'
             nodes.append({
                 'id': task.task_id,
                 'value': {
-                    'label': task.task_id,
-                    'labelStyle': "fill:{0};".format(task.ui_fgcolor),
-                    'style': "fill:{0};".format(task.ui_color),
+                    'labelType': 'html',
+                    'label': html,
+                    'style': "fill:{0};".format(task.ui_color)
                 }
             })
 
@@ -1594,7 +1717,8 @@ class Airflow(BaseView):
             task_instances=json.dumps(task_instances, indent=2),
             tasks=json.dumps(tasks, indent=2),
             nodes=json.dumps(nodes, indent=2),
-            edges=json.dumps(edges, indent=2), )
+            edges=json.dumps(edges, indent=2),
+            refresh_rate=refresh_rate, )
 
     @expose('/duration')
     @login_required

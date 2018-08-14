@@ -19,27 +19,39 @@ limitations under the License.
 {% block title %}Airflow - DAGs{% endblock %}
 
 {% block body %}
-{{ super() }}
-<h4>{{ title }}</h4>
-<ul class="nav nav-pills" role="tablist">
-  {% for log in logs %}
-  <li role="presentation" class="{{ 'active' if loop.last else '' }}">
-    <a href="#{{ loop.index }}" aria-controls="{{ loop.index }}" role="tab" data-toggle="tab">
-      {{ loop.index }}
-    </a>
-  </li>
-  {% endfor %}
-</ul>
-<div class="tab-content">
-  {% for log in logs %}
-  <div role="tabpanel" class="tab-pane {{ 'active' if loop.last else '' }}" id="{{ loop.index }}">
-    <img id="loading-{{ loop.index }}" style="margin-top:0%; margin-left:50%; height:50px; width:50px; position: absolute;"
+  {{ super() }}
+
+  <div id="error" style="display: none; margin-top: 10px;" class="alert alert-danger" role="alert">
+      <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+      <span id="error_msg">Oops.</span>
+  </div>
+  <h4>{{ title }}</h4>
+  <ul class="nav nav-pills" role="tablist">
+    {% for log in logs %}
+      <li role="presentation" class="{{ 'active' if loop.last else '' }}">
+        <a href="#{{ loop.index }}" aria-controls="{{ loop.index }}" role="tab" data-toggle="tab">
+          {{ loop.index }}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+  <div class="tab-content">
+    {% for log in logs %}
+      <div role="tabpanel" class="tab-pane {{ 'active' if loop.last else '' }}" id="{{ loop.index }}">
+        <img id="loading-{{ loop.index }}" style="margin-top:0%; margin-left:50%; height:50px; width:50px; position: absolute;"
          alt="spinner" src="{{ url_for('static', filename='loading.gif') }}">
-    <pre><code id="try-{{ loop.index }}">{{ log }}</code></pre>
+        <!--pre id="attempt-{{ loop.index }}">{{ log }}</pre-->
+        <pre><code id="try-{{ loop.index }}">{{ log }}</code></pre>
+      </div>
+    {% endfor %}
+    <img id="loading" alt="spinner" src="{{ url_for('static', filename='loading.gif') }}"
+         style="margin: auto; display: none;">
   </div>
-  {% endfor %}
-  </div>
+  <button class="btn btn-default pull-left refresh_button" style="margin-bottom: 10px;">
+      <span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh Logs"></span>
+  </button>
 {% endblock %}
+
 {% block tail %}
 {{ super() }}
 <script>
@@ -134,6 +146,35 @@ limitations under the License.
         // Only auto_tailing the page when streaming the latest attempt.
         autoTailingLog(i, null, auto_tailing=(i == TOTAL_ATTEMPTS));
       }
+    });
+
+// ===== FIXME check and remove ====
+    function error(msg) {
+        $('#error_msg').html(msg);
+        $('#error').show();
+        reset();
+    }
+
+    function reset() {
+        $('#loading').css('display', 'none');
+        $(".refresh_button").removeClass('disabled');
+    }
+
+    $(".refresh_button").on("click", function() {
+        $("#loading").css('display', 'block');
+        $('#error').hide();
+        $(".refresh_button").addClass('disabled');
+        $.get(decodeURIComponent(window.location.href) + '&log_id=' + $("div.tab-pane.active").attr('id')
+        ).done(
+            function(data) {
+                var attempt = $("div.tab-pane.active").attr('id')
+                $("pre#attempt-" + attempt).text(data.replace(/\r\n/g, '\n'));
+                reset();
+                window.scrollTo(0, document.body.scrollHeight);
+            }
+        ).fail(function(jqxhr, textStatus, err) {
+            error(textStatus + ': ' + err);
+        });
     });
 
 </script>

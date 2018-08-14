@@ -185,6 +185,7 @@ def clear_task_instances(tis,
     """
     job_ids = []
     for ti in tis:
+        ti.progress = { 'ready': 0, 'warning': 0, 'failed': 0, 'completed': 0 }
         if ti.state == State.RUNNING:
             if ti.job_id:
                 ti.state = State.SHUTDOWN
@@ -889,6 +890,7 @@ class TaskInstance(Base, LoggingMixin):
     queued_dttm = Column(UtcDateTime)
     pid = Column(Integer)
     executor_config = Column(PickleType(pickler=dill))
+    progress = Column(PickleType)
 
     __table_args__ = (
         Index('ti_dag_state', dag_id, state),
@@ -929,6 +931,7 @@ class TaskInstance(Base, LoggingMixin):
             self.state = state
         self.hostname = ''
         self.executor_config = task.executor_config
+        self.progress = { 'ready': 0, 'warning': 0, 'failed': 0, 'completed': 0 }
         self.init_on_load()
         # Is this TaskInstance being currently running within `airflow run --raw`.
         # Not persisted to the database so only valid for the current process
@@ -1215,6 +1218,7 @@ class TaskInstance(Base, LoggingMixin):
             self.hostname = ti.hostname
             self.pid = ti.pid
             self.executor_config = ti.executor_config
+            self.progress = ti.progress
         else:
             self.state = None
 
@@ -2061,6 +2065,19 @@ class TaskInstance(Base, LoggingMixin):
         self.raw = raw
         self._set_context(self)
 
+    @provide_session
+    def task_progress(self, ready=None, warning=None, failed=None, completed=None, session=None):
+        if ready is not None:
+            self.progress['ready'] = int(ready)
+        if warning is not None:
+            self.progress['warning'] = int(warning)
+        if failed is not None:
+            self.progress['failed'] = int(failed)
+        if completed is not None:
+            self.progress['completed'] = int(completed)
+        session.merge(self)
+        session.commit()
+
 
 class TaskFail(Base):
     """
@@ -2472,6 +2489,8 @@ class BaseOperator(LoggingMixin):
         # Private attributes
         self._upstream_task_ids = set()
         self._downstream_task_ids = set()
+
+        self.progress = False
 
         if not dag and _CONTEXT_MANAGER_DAG:
             dag = _CONTEXT_MANAGER_DAG
@@ -3051,6 +3070,16 @@ class BaseOperator(LoggingMixin):
             task_ids=task_ids,
             dag_id=dag_id,
             include_prior_dates=include_prior_dates)
+
+    @property
+    def support_progress(self):
+        return self.progress 
+
+    def enable_progress(self):
+        self.progress = True
+
+    def set_progress(self, context, ready=None, warning=None, failed=None, completed=None):
+        context['ti'].task_progress(ready, warning, failed, completed)
 
 
 class DagModel(Base):

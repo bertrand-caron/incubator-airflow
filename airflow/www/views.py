@@ -834,9 +834,6 @@ class Airflow(BaseView):
         dag_id = request.args.get('dag_id')
         task_id = request.args.get('task_id')
         execution_date = request.args.get('execution_date')
-        log_id = 0
-        if 'log_id' in request.args:
-            log_id = int(request.args.get('log_id'))
         dttm = pendulum.parse(execution_date)
         form = DateTimeForm(data={'execution_date': dttm})
         dag = dagbag.get_dag(dag_id)
@@ -845,30 +842,8 @@ class Airflow(BaseView):
             models.TaskInstance.dag_id == dag_id,
             models.TaskInstance.task_id == task_id,
             models.TaskInstance.execution_date == dttm).first()
-        if ti is None:
-            logs = ["*** Task instance did not exist in the DB\n"]
-        else:
-            logger = logging.getLogger('airflow.task')
-            task_log_reader = conf.get('core', 'task_log_reader')
-            handler = next((handler for handler in logger.handlers
-                            if handler.name == task_log_reader), None)
-            try:
-                ti.task = dag.get_task(ti.task_id)
-                logs = handler.read(ti, try_number=(log_id if log_id > 0 else None))
-            except AttributeError as e:
-                logs = ["Task log handler {} does not support read logs.\n{}\n" \
-                            .format(task_log_reader, str(e))]
 
-        if request.is_xhr and log_id > 0:
-            log = logs[0]
-            if PY2 and not isinstance(log, unicode):
-                log = log.decode('utf-8')
-            return log
-
-        for i, log in enumerate(logs):
-            if PY2 and not isinstance(log, unicode):
-                logs[i] = log.decode('utf-8')
-
+        logs = [''] * (ti.next_try_number - 1 if ti is not None else 0)
         return self.render(
             'airflow/ti_log.html',
             logs=logs, dag=dag, title="Log by attempts",
@@ -1101,8 +1076,13 @@ class Airflow(BaseView):
     @wwwutils.notify_owner
     def trigger_dag(self):
         dag_id = request.args.get('dag_id')
+        origin = request.args.get('origin') or "/admin/"
         dag = dagbag.get_dag(dag_id)
         title = dag_id.replace('_', ' ').title()
+
+        if not dag:
+            flash("Cannot find dag {}".format(dag_id))
+            return redirect(origin)
 
         # if no default set then the parameter is assumed to be an input argument (and not a setting) when rendering
         # the form
@@ -1111,7 +1091,7 @@ class Airflow(BaseView):
         num_args = 0
         for task in dag.params:
             for param in dag.params[task]:
-                if 'required' in dag.params[task][param] and dag.params[task][param]['required'] == True:
+                if 'required' in dag.params[task][param] and dag.params[task][param]['required'] is True:
                     arguments.setdefault(task, {})[param] = dag.params[task][param]
                     num_args = num_args + 1
                 elif 'default' in dag.params[task][param]:
@@ -1120,7 +1100,7 @@ class Airflow(BaseView):
                     arguments.setdefault(task, {})[param] = dag.params[task][param]
                     num_args = num_args + 1
 
-        execution_date = datetime.utcnow()
+        execution_date = timezone.utcnow()
         run_id = "manual__{0}".format(execution_date.isoformat())
 
         return self.render(
@@ -1147,13 +1127,8 @@ class Airflow(BaseView):
             flash("Cannot find dag {}".format(dag_id))
             return redirect(origin)
 
-        execution_date = datetime.utcnow()
+        execution_date = timezone.utcnow()
         run_id = "manual__{0}".format(execution_date.isoformat())
-
-        dr = DagRun.find(dag_id=dag_id, run_id=run_id)
-        if dr:
-            flash("This run_id {} already exists".format(run_id))
-            return redirect(origin)
 
         run_conf = {}
         for input in request.form:
@@ -1163,6 +1138,12 @@ class Airflow(BaseView):
                 run_conf.setdefault(task, {})[param] = request.form[input]
             elif input == 'run_id':
                 run_id = request.form[input]
+
+        dr = DagRun.find(dag_id=dag_id, run_id=run_id)
+        if dr:
+            flash("This run_id {} already exists".format(run_id))
+            return redirect(origin)
+
         dag.create_dagrun(
             run_id=run_id,
             execution_date=execution_date,
@@ -1637,7 +1618,7 @@ class Airflow(BaseView):
         nodes = []
         edges = []
         for task in dag.tasks:
-            html =  '<div style="padding: 5px 10px 5px 10px">'
+            html = '<div style="padding: 5px 10px 5px 10px">'
             html += ' <text text-anchor="left" style="fill:%s;"><tspan dy="1em" x="1">%s</tspan></text>' % (task.ui_fgcolor, task.task_id)
             if task.support_progress and refresh_rate > 0:
                 html += ' <div id="progress_%s" class="progress" style="fill: %s;">' % (task.task_id, task.ui_color)

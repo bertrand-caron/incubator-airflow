@@ -1690,8 +1690,8 @@ class CLIFactory(object):
         'keep_alive': Arg(
             ("-K", "--keep_alive"),
             default=conf.get('webserver', 'KEEP_ALIVE'),
-            help="The number of seconds the gunicorn HTTP server will wait for requests on a Keep-Alive connection."
-        ),
+            help="The number of seconds the gunicorn HTTP server will wait for requests "
+                 "on a Keep-Alive connection."),
         # scheduler
         'dag_id_opt': Arg(("-d", "--dag_id"), help="The id of the dag to run"),
         'run_duration': Arg(

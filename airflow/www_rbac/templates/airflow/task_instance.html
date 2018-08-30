@@ -7,9 +7,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -46,9 +46,11 @@
     <li><a href="{{ url_for("Airflow.task", dag_id=dag.dag_id, task_id=task_id, execution_date=execution_date) }}">
         <span class="glyphicon glyphicon-certificate" aria-hidden="true"></span>
       Task Instance Details</a></li>
+    {% if enable_all_views %}
     <li><a href="{{ url_for("Airflow.rendered", dag_id=dag.dag_id, task_id=task_id, execution_date=execution_date) }}">
         <span class="glyphicon glyphicon-certificate" aria-hidden="true"></span>
       Rendered Template</a></li>
+    {% endif %}
     <li><a href="{{ url_for("Airflow.log", dag_id=dag.dag_id, task_id=task_id, execution_date=execution_date) }}">
         <span class="glyphicon glyphicon-certificate" aria-hidden="true"></span>
       Log</a></li>

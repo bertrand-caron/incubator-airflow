@@ -16,15 +16,12 @@
 
 #}
 {% extends "airflow/dag.html" %}
-
-{% block title %}
-    {{ title }}
-{% endblock %}
+{% block title %}{{ title }}{% endblock %}
 
 {% block body %}
     {{ super() }}
     <div class="container">
-    <form action="{{ url_for('airflow.trigger_with_conf') }}" method="post">
+    <form action="{{ url_for('Airflow.trigger_with_conf') }}" method="post">
       <input type="hidden" value="{{ dag.dag_id }}" name="dag_id">
       <input name=_csrf_token type=hidden value="{{ csrf_token() }}">
       <br>

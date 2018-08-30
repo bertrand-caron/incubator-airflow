@@ -18,21 +18,19 @@
 # under the License.
 from flask import url_for
 
-from airflow.exceptions import DagNotFound
+from airflow.exceptions import DagNotFound, DagRunNotFound
 from airflow.models import DagBag, DagRun
 from airflow import configuration as conf
-
 
 is_rbac = conf.getboolean('webserver', 'rbac')
 
 
-def get_dag_runs(dag_id, state=None):
+def get_dag_run_by_id(dag_id, run_id):
     """
-    Returns a list of Dag Runs for a specific DAG ID.
+    Returns a Dag Run for a specific DAG ID/Run ID.
     :param dag_id: String identifier of a DAG
-    :param state: queued|running|success...
-    :return: List of DAG runs of a DAG with requested state,
-    or all runs if the state is not specified
+    :param run_id: Dag run id
+    :return: DAG run of the requested run_id
     """
     dagbag = DagBag()
 
@@ -41,19 +39,19 @@ def get_dag_runs(dag_id, state=None):
         error_message = "Dag id {} not found".format(dag_id)
         raise DagNotFound(error_message)
 
-    dag_runs = list()
-    state = state.lower() if state else None
-    for run in DagRun.find(dag_id=dag_id, state=state):
-        dag_runs.append({
-            'id': run.id,
-            'run_id': run.run_id,
-            'state': run.state,
-            'dag_id': run.dag_id,
-            'execution_date': run.execution_date.isoformat(),
-            'start_date': ((run.start_date or '') and
-                           run.start_date.isoformat()),
-            'dag_run_url': url_for('Airflow.graph' if is_rbac else 'airflow.graph', dag_id=run.dag_id,
-                                   execution_date=run.execution_date)
-        })
+    run = DagRun.find(dag_id=dag_id, run_id=run_id)
+    if run is None or len(run) == 0:
+        error_message = "Dag id {} run_id {} not found".format(dag_id, run_id)
+        raise DagRunNotFound(error_message)
 
-    return dag_runs
+    return {
+        'id': run[0].id,
+        'run_id': run[0].run_id,
+        'state': run[0].state,
+        'dag_id': run[0].dag_id,
+        'execution_date': run[0].execution_date.isoformat(),
+        'start_date': ((run[0].start_date or '') and
+                       run[0].start_date.isoformat()),
+        'dag_run_url': url_for('Airflow.graph' if is_rbac else 'airflow.graph', dag_id=run[0].dag_id,
+                               execution_date=run[0].execution_date)
+    }

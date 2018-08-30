@@ -17,12 +17,20 @@
 #}
 {% extends "airflow/dag.html" %}
 
-{% block title %}Airflow - DAGs{% endblock %}
+{% block title %}Roames - Workflows{% endblock %}
 
 {% block head_css %}
 {{ super() }}
 <link rel="stylesheet" type="text/css"
       href="{{ url_for('static', filename='css/graph.css') }}">
+<style>
+    .progress {
+        height: 5px;
+        width: 100%;
+        margin-bottom: 0px;
+        margin-top: 5px;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -75,8 +83,23 @@
 </div>
 <hr style="margin-bottom: 0px;"/>
 <button class="btn btn-default pull-right" id="refresh_button">
-    <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>
+    <span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh DAG"></span>
 </button>
+{% if refresh_rate|int == 0 %}
+<button class="btn btn-default pull-right" id="stop_auto_refresh_button" style="display: none;" >
+    <span class="glyphicon glyphicon-ban-circle" aria-hidden="true" title="Stop Auto Refresh"></span>
+</button>
+<button class="btn btn-default pull-right" id="start_auto_refresh_button">
+    <span class="glyphicon glyphicon-play-circle" aria-hidden="true" title="Start Auto Refresh"></span>
+</button>
+{% else %}
+<button class="btn btn-default pull-right" id="stop_auto_refresh_button">
+    <span class="glyphicon glyphicon-ban-circle" aria-hidden="true" title="Stop Auto Refresh"></span>
+</button>
+<button class="btn btn-default pull-right" id="start_auto_refresh_button" style="display: none;" >
+    <span class="glyphicon glyphicon-play-circle" aria-hidden="true" title="Start Auto Refresh"></span>
+</button>
+{% endif %}
 <div id="svg_container">
 
     <svg width="{{ width }}" height="{{ height }}">
@@ -111,8 +134,13 @@
     // Below variables are being used in dag.js
     var tasks = {{ tasks|safe }};
     var task_instances = {{ task_instances|safe }};
-    var getTaskInstanceURL = '{{ url_for("Airflow.task_instances", dag_id='+
-      dag.dag_id + ', execution_date=' + execution_date + ') }}';
+    var getTaskInstanceURL = "{{ url_for('Airflow.task_instances') }}";
+    var getTaskInstanceParams = {dag_id : "{{ dag.dag_id }}", execution_date : "{{ execution_date }}"};
+
+    var refresh_rate = -1;
+    {% if refresh_rate|int > 0 %}
+    var refresh_rate = {{ refresh_rate }};
+    {% endif %}
 
     var duration = 500;
     var stateFocusMap = {
@@ -296,7 +324,7 @@
     function inject_node_ids(tasks) {
         $.each(tasks, function(task_id, task) {
             $('tspan').filter(function(index) { return $(this).text() === task_id; })
-                    .parent().parent().parent()
+                    .parent().parent().parent().parent().parent().parent().parent()
                     .attr("id", task_id);
         });
     }

@@ -80,7 +80,7 @@ div#svg_container {
  cursor: move;
 }
 
-#refresh_button {
+#refresh_button, #start_auto_refresh_button, #stop_auto_refresh_button {
     top: 15px;
     right: 15px;
     position: relative;

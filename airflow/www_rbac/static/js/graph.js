@@ -26,7 +26,7 @@ function update_nodes_states(task_instances) {
     $('tspan').filter(function (index) {
       return $(this).text() === task_id;
     })
-      .parent().parent().parent().parent()
+      .parent().parent().parent().parent().parent().parent().parent()
       .attr("class", "node enter " + ti.state)
       .attr("data-toggle", "tooltip")
       .attr("data-original-title", function (d) {
@@ -43,32 +43,71 @@ function update_nodes_states(task_instances) {
         tt += generateTooltipDateTime(ti.start_date, ti.end_date, dagTZ); // dagTZ has been defined in dag.html
         return tt;
       });
+      var exist = $('#progress_' + task_id).length;
+      if (exist > 0) {
+          $('#progress_completed_' + task_id).width(ti.progress.completed.toString() + '%');
+          $('#progress_warning_' + task_id).width(ti.progress.warning.toString() + '%');
+          $('#progress_failed_' + task_id).width(ti.progress.failed.toString() + '%');
+          $('#progress_ready_' + task_id).width(ti.progress.ready.toString() + '%');
+      }
   });
 }
 
+function error(msg){
+  $('#error_msg').html(msg);
+  $('#error').show();
+  $('#error').delay(10000).fadeOut('slow');
+  $('#loading').hide();
+  $('#chart_section').hide(1000);
+  $('#datatable_section').hide(1000);
+}
+
+function refreshGraph() {
+  $("#loading").css("display", "block");
+  $("div#svg_container").css("opacity", "0.2");
+  $.get(getTaskInstanceURL, getTaskInstanceParams)
+    .done(
+      function (task_instances) {
+        update_nodes_states(JSON.parse(task_instances));
+        $("#loading").hide();
+        $("div#svg_container").css("opacity", "1");
+        $('#error').hide();
+      }
+    ).fail(function (jqxhr, textStatus, err) {
+      error(textStatus + ': ' + err);
+    });
+}
+
+function autoRefreshGraph() {
+  $.get(getTaskInstanceURL, getTaskInstanceParams)
+    .done(
+      function(task_instances) {
+          update_nodes_states(JSON.parse(task_instances));
+      }
+    );
+}
+
 function initRefreshButton() {
-  d3.select("#refresh_button").on("click",
-    function () {
-      $("#loading").css("display", "block");
-      $("div#svg_container").css("opacity", "0.2");
-      $.get(getTaskInstanceURL)
-        .done(
-          function (task_instances) {
-            update_nodes_states(JSON.parse(task_instances));
-            $("#loading").hide();
-            $("div#svg_container").css("opacity", "1");
-            $('#error').hide();
-          }
-        ).fail(function (jqxhr, textStatus, err) {
-        $('#error_msg').html(textStatus + ': ' + err);
-        $('#error').show();
-        $('#loading').hide();
-        $('#chart_section').hide(1000);
-        $('#datatable_section').hide(1000);
-      });
-    }
-  );
+  d3.select("#refresh_button").on("click", refreshGraph);
 }
 
 initRefreshButton();
 update_nodes_states(task_instances);
+
+var refresh_interval = null;
+if (refresh_rate > 0) {
+  refresh_interval = window.setInterval(autoRefreshGraph, refresh_rate);
+}
+
+d3.select("#stop_auto_refresh_button").on("click", function () {
+  clearInterval(refresh_interval);
+  $("#stop_auto_refresh_button").hide();
+  $("#start_auto_refresh_button").show();
+});
+
+d3.select("#start_auto_refresh_button").on("click", function () {
+  refresh_interval = window.setInterval(autoRefreshGraph, refresh_rate);
+  $("#start_auto_refresh_button").hide();
+  $("#stop_auto_refresh_button").show();
+});
+

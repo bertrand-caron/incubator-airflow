@@ -19,45 +19,36 @@ limitations under the License.
 {% block title %}Airflow - DAGs{% endblock %}
 
 {% block body %}
-  {{ super() }}
-
-  <div id="error" style="display: none; margin-top: 10px;" class="alert alert-danger" role="alert">
-      <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
-      <span id="error_msg">Oops.</span>
-  </div>
-  <h4>{{ title }}</h4>
-  <ul class="nav nav-pills" role="tablist">
-    {% for log in logs %}
-      <li role="presentation" class="{{ 'active' if loop.last else '' }}">
-        <a href="#{{ loop.index }}" aria-controls="{{ loop.index }}" role="tab" data-toggle="tab">
-          {{ loop.index }}
-        </a>
-      </li>
-    {% endfor %}
-  </ul>
-  <div class="tab-content">
-    {% for log in logs %}
-      <div role="tabpanel" class="tab-pane {{ 'active' if loop.last else '' }}" id="{{ loop.index }}">
-        <img id="loading-{{ loop.index }}" style="margin-top:0%; margin-left:50%; height:50px; width:50px; position: absolute;"
+{{ super() }}
+<h4>{{ title }}</h4>
+<ul class="nav nav-pills" role="tablist">
+  {% for log in logs %}
+  <li role="presentation" class="{{ 'active' if loop.last else '' }}">
+    <a href="#{{ loop.index }}" aria-controls="{{ loop.index }}" role="tab" data-toggle="tab">
+      {{ loop.index }}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+<div class="tab-content">
+  {% for log in logs %}
+  <div role="tabpanel" class="tab-pane {{ 'active' if loop.last else '' }}" id="{{ loop.index }}">
+    <img id="loading-{{ loop.index }}" style="margin-top:0%; margin-left:50%; height:50px; width:50px; position: absolute;"
          alt="spinner" src="{{ url_for('static', filename='loading.gif') }}">
-        <!--pre id="attempt-{{ loop.index }}">{{ log }}</pre-->
-        <pre><code id="try-{{ loop.index }}">{{ log }}</code></pre>
-      </div>
-    {% endfor %}
-    <img id="loading" alt="spinner" src="{{ url_for('static', filename='loading.gif') }}"
-         style="margin: auto; display: none;">
+    <pre><code id="try-{{ loop.index }}">{{ log }}</code></pre>
+    <button class="btn btn-default pull-left" id="refresh-button-{{ loop.index }}" style="margin-bottom: 10px;">
+        <span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh Logs"></span>
+    </button>
   </div>
-  <button class="btn btn-default pull-left refresh_button" style="margin-bottom: 10px;">
-      <span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh Logs"></span>
-  </button>
+  {% endfor %}
+</div>
 {% endblock %}
-
 {% block tail %}
 {{ super() }}
 <script>
     // TODO: make those constants configurable.
-    // Time interval to wait before next log fetching. Default 2s.
-    const DELAY = 2e3;
+    // Time interval to wait before next log fetching. Default 5s.
+    const DELAY = 20e3;
     // Distance away from page bottom to enable auto tailing.
     const AUTO_TAILING_OFFSET = 30;
     // Animation speed for auto tailing log display.
@@ -83,7 +74,7 @@ limitations under the License.
     }
 
     // Streaming log with auto-tailing.
-    function autoTailingLog(try_number, metadata=null, auto_tailing=false) {
+    function autoTailingLog(try_number, metadata=null, auto_tailing=false, append=true) {
       console.debug("Auto-tailing log for dag_id: {{ dag_id }}, task_id: {{ task_id }}, \
        execution_date: {{ execution_date }}, try_number: " + try_number + ", metadata: " + JSON.stringify(metadata));
 
@@ -119,7 +110,11 @@ limitations under the License.
               var should_scroll = true
             }
             // The message may contain HTML, so either have to escape it or write it as text.
-            document.getElementById(`try-${try_number}`).textContent += res.message + "\n";
+            if (append) {
+              document.getElementById(`try-${try_number}`).textContent += res.message + "\n";
+            } else {
+              document.getElementById(`try-${try_number}`).textContent + res.message + "\n";
+            }
             // Auto scroll window to the end if current window location is near the end.
             if(should_scroll) {
               $("html, body").animate({ scrollTop: $(document).height() }, ANIMATION_SPEED);
@@ -148,32 +143,11 @@ limitations under the License.
       }
     });
 
-// ===== FIXME check and remove ====
-    function error(msg) {
-        $('#error_msg').html(msg);
-        $('#error').show();
-        reset();
-    }
-
-    function reset() {
-        $('#loading').css('display', 'none');
-        $(".refresh_button").removeClass('disabled');
-    }
-
-    $(".refresh_button").on("click", function() {
-        $("#loading").css('display', 'block');
-        $('#error').hide();
-        $(".refresh_button").addClass('disabled');
-        $.get(decodeURIComponent(window.location.href) + '&log_id=' + $("div.tab-pane.active").attr('id')
-        ).done(
-            function(data) {
-                var attempt = $("div.tab-pane.active").attr('id')
-                $("pre#attempt-" + attempt).text(data.replace(/\r\n/g, '\n'));
-                reset();
-                window.scrollTo(0, document.body.scrollHeight);
-            }
-        ).fail(function(jqxhr, textStatus, err) {
-            error(textStatus + ': ' + err);
+    $('button[id^="refresh-button-"').on("click", function() {
+        try_number = $(this).attr("id").match(/[\d]+$/);
+        $(this).addClass('disabled');
+        autoTailingLog(try_number[0], null, auto_tailing=false, append=false).then(function () {
+          $('#refresh-button-'+try_number).removeClass('disabled');
         });
     });
 

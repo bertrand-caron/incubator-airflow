@@ -20,6 +20,7 @@ from airflow.utils.log.logging_mixin import LoggingMixin
 install_aliases()
 
 import requests
+import json
 
 from airflow import configuration as conf
 
@@ -29,7 +30,7 @@ from flask import make_response
 from flask import request
 from functools import wraps
 
-AUTH0_DOMAIN = None
+ACCESS_API_URL = None
 client_auth = None
 
 
@@ -41,9 +42,8 @@ def get_config_param(param):
 
 
 def init_app(app):
-    global AUTH0_DOMAIN
-
-    AUTH0_DOMAIN = get_config_param('domain')
+    global ACCESS_API_URL
+    ACCESS_API_URL = str(conf.get('roames', 'access_api_url'))
 
 
 def _unauthorized():
@@ -77,12 +77,25 @@ def requires_authentication(function):
             return _unauthorized()
 
         token = parts[1]
-        url = "https://%s/tokeninfo?id_token=%s" % (AUTH0_DOMAIN, token)
-        response = requests.get(url)
+        headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+        body = {
+            'tokenType': 'BEARER',
+            'token': str(token)
+        }
+        url = '%s/tokens' % ACCESS_API_URL
+        log.info('API Auth request url=%s body=%s' % (url, body))
+        response = requests.post(url=url, data=json.dumps(body), headers=headers, timeout=120)
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError:
+            log.error('API authentication failed URL=%s : Reason=%s ResponseBody=%s' % (url, response.reason, response.content))
             return _unauthorized()
+
+        respose_dict = json.loads(response.text)
+        log.info('API Response data : %s' % respose_dict)
 
         stack.top.current_user = response.json()
         response = function(*args, **kwargs)

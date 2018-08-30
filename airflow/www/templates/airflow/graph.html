@@ -19,7 +19,7 @@
 {% import 'admin/lib.html' as lib with context %}
 {% import 'admin/static.html' as admin_static with context %}
 
-{% block title %}Airflow - DAGs{% endblock %}
+{% block title %}Roames Airflow{% endblock %}
 
 {% block head_css %}
 {{ super() }}
@@ -27,6 +27,14 @@
     href="{{ url_for('static', filename='dagre.css') }}">
 <link rel="stylesheet" type="text/css"
     href="{{ url_for('static', filename='graph.css') }}">
+<style>
+    .progress {
+        height: 5px;
+        width: 100%;
+        margin-bottom: 0px;
+        margin-top: 5px;
+    }
+</style>
 {% endblock %}
 
 {% block body %}
@@ -79,8 +87,23 @@
 </div>
 <hr style="margin-bottom: 0px;"/>
 <button class="btn btn-default pull-right" id="refresh_button">
-    <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>
+    <span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh DAG"></span>
 </button>
+{% if refresh_rate|int == 0 %}
+<button class="btn btn-default pull-right" id="stop_auto_refresh_button" style="display: none;" >
+    <span class="glyphicon glyphicon-ban-circle" aria-hidden="true" title="Stop Auto Refresh"></span>
+</button>
+<button class="btn btn-default pull-right" id="start_auto_refresh_button">
+    <span class="glyphicon glyphicon-play-circle" aria-hidden="true" title="Start Auto Refresh"></span>
+</button>
+{% else %}
+<button class="btn btn-default pull-right" id="stop_auto_refresh_button">
+    <span class="glyphicon glyphicon-ban-circle" aria-hidden="true" title="Stop Auto Refresh"></span>
+</button>
+<button class="btn btn-default pull-right" id="start_auto_refresh_button" style="display: none;" >
+    <span class="glyphicon glyphicon-play-circle" aria-hidden="true" title="Start Auto Refresh"></span>
+</button>
+{% endif %}
 <div id="svg_container">
 
     <svg width="{{ width }}" height="{{ height }}">
@@ -258,7 +281,7 @@
     function inject_node_ids(tasks) {
         $.each(tasks, function(task_id, task) {
             $('tspan').filter(function(index) { return $(this).text() === task_id; })
-                    .parent().parent().parent()
+                    .parent().parent().parent().parent().parent().parent()
                     .attr("id", task_id);
         });
     }
@@ -268,7 +291,7 @@
     function update_nodes_states(task_instances) {
         $.each(task_instances, function(task_id, ti) {
           $('tspan').filter(function(index) { return $(this).text() === task_id; })
-            .parent().parent().parent()
+            .parent().parent().parent().parent().parent().parent()
             .attr("class", "node enter " + ti.state)
             .attr("data-toggle", "tooltip")
             .attr("data-original-title", function(d) {
@@ -286,6 +309,13 @@
               tt += "State: " + ti.state + "<br>";
               return tt;
             });
+            var exist = $('#progress_' + task_id).length;
+            if (exist > 0) {
+                $('#progress_completed_' + task_id).width(ti.progress.completed.toString() + '%');
+                $('#progress_warning_' + task_id).width(ti.progress.warning.toString() + '%');
+                $('#progress_failed_' + task_id).width(ti.progress.failed.toString() + '%');
+                $('#progress_ready_' + task_id).width(ti.progress.ready.toString() + '%');
+            }
         });
     }
 
@@ -342,30 +372,58 @@
     function error(msg){
       $('#error_msg').html(msg);
       $('#error').show();
+      $('#error').delay(10000).fadeOut('slow');
       $('#loading').hide();
       $('#chart_section').hide(1000);
       $('#datatable_section').hide(1000);
     }
 
-    d3.select("#refresh_button").on("click",
-        function() {
-            $("#loading").css("display", "block");
-            $("div#svg_container").css("opacity", "0.2");
-            $.get(
-                "{{ url_for('airflow.task_instances') }}",
-                {dag_id : "{{ dag.dag_id }}", execution_date : "{{ execution_date }}"})
-            .done(
-                function(task_instances) {
-                    update_nodes_states(JSON.parse(task_instances));
-                    $("#loading").hide();
-                    $("div#svg_container").css("opacity", "1");
-                    $('#error').hide();
-                }
-            ).fail(function(jqxhr, textStatus, err) {
-                error(textStatus + ': ' + err);
-            });
-        }
-    );
+    function refreshGraph() {
+        $("#loading").css("display", "block");
+        $("div#svg_container").css("opacity", "0.2");
+        $.get(
+            "/admin/airflow/object/task_instances",
+            {dag_id : "{{ dag.dag_id }}", execution_date : "{{ execution_date }}"})
+        .done(
+            function(task_instances) {
+                update_nodes_states(JSON.parse(task_instances));
+                $("#loading").hide();
+                $("div#svg_container").css("opacity", "1");
+                $('#error').hide();
+            }
+        ).fail(function(jqxhr, textStatus, err) {
+            error(textStatus + ': ' + err);
+        });
+    }
+
+    function autoRefreshGraph() {
+        $.get(
+            "/admin/airflow/object/task_instances",
+            {dag_id : "{{ dag.dag_id }}", execution_date : "{{ execution_date }}"})
+        .done(
+            function(task_instances) {
+                update_nodes_states(JSON.parse(task_instances));
+            }
+        );
+    }
+
+    var refresh_interval = null;
+    {% if refresh_rate|int > 0 %}
+    refresh_interval = window.setInterval(autoRefreshGraph, {{ refresh_rate }})
+    {% endif %}
+    d3.select("#refresh_button").on("click", refreshGraph);
+
+    d3.select("#stop_auto_refresh_button").on("click", function () {
+        clearInterval(refresh_interval);
+        $("#stop_auto_refresh_button").hide();
+        $("#start_auto_refresh_button").show();
+    });
+
+    d3.select("#start_auto_refresh_button").on("click", function () {
+        refresh_interval = window.setInterval(autoRefreshGraph, {{ refresh_rate }})
+        $("#start_auto_refresh_button").hide();
+        $("#stop_auto_refresh_button").show();
+    });
 
     </script>
 

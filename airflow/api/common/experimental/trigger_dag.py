@@ -18,15 +18,11 @@
 # under the License.
 
 import json
-from flask import url_for
 
 from airflow.exceptions import DagRunAlreadyExists, DagNotFound
 from airflow.models import DagRun, DagBag, DagModel
 from airflow.utils import timezone
 from airflow.utils.state import State
-from airflow import configuration as conf
-
-is_rbac = conf.getboolean('webserver', 'rbac')
 
 
 def _trigger_dag(
@@ -113,9 +109,7 @@ def trigger_dag(
             'dag_id': triggers[0].dag_id,
             'execution_date': triggers[0].execution_date.isoformat(),
             'start_date': ((triggers[0].start_date or '') and
-                           triggers[0].start_date.isoformat()),
-            'dag_run_url': url_for('Airflow.graph' if is_rbac else 'airflow.graph', dag_id=triggers[0].dag_id,
-                                   execution_date=triggers[0].execution_date)
+                           triggers[0].start_date.isoformat())
         }
     else:
         return {}

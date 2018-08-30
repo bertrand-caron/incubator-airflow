@@ -16,14 +16,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from flask import url_for
 
 from airflow.exceptions import DagNotFound
 from airflow.models import DagBag, DagRun
-from airflow import configuration as conf
-
-
-is_rbac = conf.getboolean('webserver', 'rbac')
 
 
 def get_dag_runs(dag_id, state=None):
@@ -51,9 +46,7 @@ def get_dag_runs(dag_id, state=None):
             'dag_id': run.dag_id,
             'execution_date': run.execution_date.isoformat(),
             'start_date': ((run.start_date or '') and
-                           run.start_date.isoformat()),
-            'dag_run_url': url_for('Airflow.graph' if is_rbac else 'airflow.graph', dag_id=run.dag_id,
-                                   execution_date=run.execution_date)
+                           run.start_date.isoformat())
         })
 
     return dag_runs

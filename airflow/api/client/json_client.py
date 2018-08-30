@@ -53,7 +53,7 @@ class Client(api_client.Client):
                                  "conf": conf,
                                  "execution_date": execution_date,
                              })
-        return data['message']
+        return data
 
     def delete_dag(self, dag_id):
         endpoint = '/api/experimental/dags/{}/delete_dag'.format(dag_id)

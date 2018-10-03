@@ -3073,7 +3073,7 @@ class BaseOperator(LoggingMixin):
 
     @property
     def support_progress(self):
-        return self.progress 
+        return self.progress
 
     def enable_progress(self):
         self.progress = True

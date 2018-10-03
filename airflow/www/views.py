@@ -945,6 +945,7 @@ class Airflow(BaseView):
     def xcom(self, session=None):
         dag_id = request.args.get('dag_id')
         task_id = request.args.get('task_id')
+        edit_mode = request.args.get('edit_mode') or 'false'
         # Carrying execution_date through, even though it's irrelevant for
         # this context
         execution_date = request.args.get('execution_date')
@@ -967,14 +968,68 @@ class Airflow(BaseView):
             if not xcom.key.startswith('_'):
                 attributes.append((xcom.key, xcom.value))
 
-        title = "XCom"
+        # Get all effective XComs for this task_id
+        effective_xcoms = {}
+        if edit_mode == 'true':
+            effective_xcomlist = session.query(XCom).filter(
+                XCom.dag_id == dag_id,
+                XCom.execution_date == dttm).order_by(XCom.timestamp.asc()).all()
+
+            # Get all the xcoms available for requested_task_id
+            for xcom in effective_xcomlist:
+                if not xcom.key.startswith('_'):
+                    effective_xcoms[xcom.key] = {
+                        'id': xcom.id,
+                        'task_id': xcom.task_id,
+                        'value': json.dumps(xcom.value).encode('UTF-8')
+                    }
+
+            # set xcoms for requested task_id as the final xcom values
+            for xcom in xcomlist:
+                if not xcom.key.startswith('_'):
+                    effective_xcoms[xcom.key] = {
+                        'id': xcom.id,
+                        'task_id': xcom.task_id,
+                        'value': json.dumps(xcom.value).encode('UTF-8')
+                    }
+
+        title = "XCom %s" % (' Edit' if edit_mode == 'true' else ' View')
+
         return self.render(
             'airflow/xcom.html',
             attributes=attributes,
             task_id=task_id,
             execution_date=execution_date,
             form=form,
-            dag=dag, title=title)
+            dag=dag, title=title,
+            edit_mode=(edit_mode == 'true'),
+            effective_xcoms=effective_xcoms)
+
+    @expose('/xcom_edit', methods=["POST"])
+    @login_required
+    @wwwutils.action_logging
+    @provide_session
+    def xcom_edit(self, session=None):
+        xcom_id = int(request.form['xcom_id'])
+        xcom_value = str(request.form['value'])
+
+        session.expunge_all()
+
+        query = session.query(XCom).filter(
+            XCom.id == xcom_id).with_for_update()
+
+        # validate edited xcom value
+        try:
+            value = json.dumps(json.loads(xcom_value.decode('UTF-8'))).encode('UTF-8')
+        except ValueError:
+            logging.error("Could not serialize the XCOM value into JSON")
+            raise
+
+        for v in query:
+            v.value = value
+        session.commit()
+
+        return jsonify({'id': xcom_id})
 
     @expose('/run')
     @login_required
@@ -2738,7 +2793,7 @@ class JobModelView(ModelViewOnly):
 
 
 class DagRunModelView(ModelViewOnly):
-    verbose_name_plural = "DAG Runs"
+    verbose_name_plural = "Workflow Runs"
     can_edit = True
     can_create = True
     column_editable_list = ('state',)

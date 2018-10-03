@@ -157,6 +157,9 @@
           <button id="btn_log" type="button" class="btn btn-primary">
             View Log
           </button>
+          <button id="btn_xcom" type="button" class="btn btn-primary">
+            Edit XCom
+          </button>
           <hr/>
           <button id="btn_run" type="button" class="btn btn-primary"
             title="Runs a single task instance">
@@ -368,6 +371,15 @@ function updateQueryStringParameter(uri, key, value) {
         "?task_id=" + encodeURIComponent(task_id) +
         "&dag_id=" + encodeURIComponent(dag_id) +
         "&execution_date=" + encodeURIComponent(execution_date);
+      window.location = url;
+    });
+
+    $("#btn_xcom").click(function(){
+      url = "{{ url_for('airflow.xcom') }}" +
+        "?task_id=" + encodeURIComponent(task_id) +
+        "&dag_id=" + encodeURIComponent(dag_id) +
+        "&execution_date=" + encodeURIComponent(execution_date) +
+        "&edit_mode=true";
       window.location = url;
     });
 

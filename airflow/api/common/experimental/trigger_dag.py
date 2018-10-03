@@ -33,6 +33,7 @@ def _trigger_dag(
         conf,
         execution_date,
         replace_microseconds,
+        trigger_sub_dags=True
 ):
     if dag_id not in dag_bag.dags:
         raise DagNotFound("Dag id {} not found".format(dag_id))
@@ -74,7 +75,7 @@ def _trigger_dag(
             external_trigger=True,
         )
         triggers.append(trigger)
-        if dag.subdags:
+        if trigger_sub_dags and dag.subdags:
             dags_to_trigger.extend(dag.subdags)
     return triggers
 
@@ -85,6 +86,7 @@ def trigger_dag(
         conf=None,
         execution_date=None,
         replace_microseconds=True,
+        trigger_sub_dags=True
 ):
     dag_model = DagModel.get_current(dag_id)
     if dag_model is None:
@@ -99,6 +101,7 @@ def trigger_dag(
         conf=conf,
         execution_date=execution_date,
         replace_microseconds=replace_microseconds,
+        trigger_sub_dags=trigger_sub_dags
     )
 
     if triggers:

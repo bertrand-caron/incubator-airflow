@@ -152,7 +152,7 @@ def trigger_dag(dag_id):
             return response
 
     try:
-        dr = trigger.trigger_dag(dag_id, run_id, conf, execution_date)
+        dr = trigger.trigger_dag(dag_id, run_id, conf, execution_date, trigger_sub_dags=False)
     except AirflowException as err:
         _log.error(err)
         response = jsonify(error="{}".format(err))
